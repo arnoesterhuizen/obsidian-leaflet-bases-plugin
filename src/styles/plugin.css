@@ -1,0 +1,169 @@
+/* Plugin CSS — custom styles for leaflet-bases */
+div.bases-leaflet-map-container {
+	height: 100%;
+}
+div.bases-leaflet-map-container div.bases-leaflet-map {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	z-index: 0;
+	background-color: rgba(80, 120, 180, 0.1);
+}
+div.bases-leaflet-map-container div.bases-leaflet-map img.leaflet-image-layer {
+	margin: 0;
+	/* Leaflet only disables native browser image drag while its own pan-drag is
+	   active (L.DomUtil.disableImageDrag()). That leaves this plugin's full-size
+	   map image natively draggable the rest of the time, so a stray mousedown+move
+	   (e.g. right-clicking to open the context menu) can trigger the browser's own
+	   image drag-and-drop, visibly dragging the map image out from under any modal
+	   opened right after. */
+	-webkit-user-drag: none;
+	user-select: none;
+}
+
+.leaflet-map-coordinate-picker-modal {
+	width: min(90vw, 900px);
+}
+.leaflet-map-coordinate-picker-modal div.bases-leaflet-map {
+	width: 100%;
+	background-color: rgba(80, 120, 180, 0.1);
+}
+
+.bases-leaflet-view-search-icon-span {
+	display: flex;
+}
+.bases-leaflet-view-search-icon-span div {
+	display: inline-block;
+	margin-inline-start: 0.5rem;
+}
+
+.bases-leaflet-view-icon-preview {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--input-height);
+	height: var(--input-height);
+	color: var(--text-muted);
+}
+
+.bases-leaflet-view-setting-empty {
+	display: block;
+}
+.bases-leaflet-view-setting-empty .setting-items {
+	padding: 0;
+}
+
+.bases-leaflet-view-setting-vertical .setting-item-control {
+	display: block;
+}
+
+.bases-leaflet-view-setting-vertical .invalid input {
+	border-color: var(--text-error);
+}
+
+.bases-leaflet-view-setting-error-message {
+	color: var(--text-error);
+	font-size: var(--font-ui-smaller);
+	padding-top: var(--size-4-1);
+	line-height: var(--line-height-tight);
+}
+
+.setting-item-description {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	padding-top: var(--size-4-1);
+	line-height: var(--line-height-tight);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.leaflet-control-button {
+	background: var(--tab-container-background);
+}
+
+.leaflet-marker-icon .leaflet-marker-pin {
+	position: absolute;
+	width: 32px;
+	height: 48px;
+	margin: 0px auto;
+	z-index: inherit;
+}
+.leaflet-marker-icon .leaflet-marker-inner-icon {
+	position: absolute;
+	width: 32px;
+	height: 19px;
+	font-size: 19px;
+	top: 8px;
+	left: 0px;
+	z-index: inherit;
+	margin: 0px auto;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #ebebec;
+}
+div.leaflet-marker-icon svg path {
+	stroke: unset;
+	stroke-width: unset;
+}
+
+ul.leaflet-map-property-tag-list {
+	margin: 0 8px;
+	padding: 2px;
+	gap: 0.3rem;
+	display: flex;
+	color: var(--text-on-accent);
+	flex-wrap: wrap;
+}
+ul.leaflet-map-property-tag-list li.leaflet-map-property-tag-item {
+	display: flex;
+	cursor: pointer;
+	padding: 0;
+	margin: 0;
+	background: var(--background-modifier-hover);
+	border-radius: 8px;
+	align-items: center;
+	justify-content: space-between;
+}
+.leaflet-map-property-tag-item-icon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 0 0.3rem;
+}
+.leaflet-map-property-tag-item-text {
+	font-size: var(--tag-size);
+	white-space: nowrap;
+}
+.leaflet-map-property-tag-item-close {
+	display: flex;
+	cursor: pointer;
+	margin-left: 0.3rem;
+	aspect-ratio: 1;
+	justify-content: center;
+	align-items: center;
+	padding: 4px;
+	border-radius: 8px;
+	color: var(--text-on-accent);
+	background: inherit;
+}
+.leaflet-map-property-tag-item-close:hover {
+	background: var(--background-modifier-active-hover);
+}
+ul.leaflet-map-property-tag-list li.leaflet-map-property-add-item {
+	display: flex;
+	cursor: pointer;
+	aspect-ratio: 1;
+	justify-content: center;
+	align-items: center;
+	padding: 4px;
+	margin: 0;
+	border-radius: 8px;
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+}
+li.leaflet-map-property-add-item:hover {
+	background: var(--background-modifier-active-hover);
+}
