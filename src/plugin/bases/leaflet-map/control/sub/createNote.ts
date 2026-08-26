@@ -1,7 +1,6 @@
 import { LeafletMouseEvent } from "leaflet";
 import { createOrUpdateNote } from "@plugin/bases/leaflet-map/createOrUpdateNote";
 import { Constants as C } from "@plugin/constants";
-import { t } from "@plugin/i18n/locale";
 import { MarkerNoteModal } from "@plugin/properties/components/markerNoteModal";
 import { MarkerModalMode } from "@plugin/types";
 import { getIconWithDefault, writeCoordinates } from "@plugin/util";
@@ -11,7 +10,7 @@ export class CreateNoteControl extends SubControl {
 	override onAdded(): void {
 		if (this.button) {
 			this.button.appendChild(getIconWithDefault(C.map.controlIcons.createNote));
-			this.button.ariaLabel = t("map.controls.createNote.label");
+			this.button.ariaLabel = "Create note here";
 		}
 	}
 
@@ -29,12 +28,12 @@ export class CreateNoteControl extends SubControl {
 
 	private createNoteAt(event: LeafletMouseEvent): void {
 		const coordinates = writeCoordinates(event.latlng);
-		const mapName = this.options.name;
+		const map = this.mapConfig.mapName;
 
 		new MarkerNoteModal(
 			this.app,
-			(marker, noteSelection) => createOrUpdateNote(this.app, this.viewUtil, marker, noteSelection),
-			{ coordinates, mapName },
+			(marker, noteSelection) => createOrUpdateNote(this.frontmatter, this.viewUtil, marker, noteSelection),
+			{ coordinates, map },
 			MarkerModalMode.Add,
 			this.viewUtil.entries.map((entry) => entry.file),
 		).open();

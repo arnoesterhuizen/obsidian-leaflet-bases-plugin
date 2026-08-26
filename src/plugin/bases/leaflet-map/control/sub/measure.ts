@@ -11,7 +11,6 @@ import {
 	tooltip,
 } from "leaflet";
 import { Constants as C } from "@plugin/constants";
-import { t } from "@plugin/i18n/locale";
 import { distance, getIconWithDefault } from "@plugin/util";
 import { SubControl } from "../subControl";
 
@@ -37,7 +36,7 @@ export class MeasureControl extends SubControl {
 	override onAdded(): void {
 		if (this.button) {
 			this.button.appendChild(getIconWithDefault(C.map.controlIcons.measure));
-			this.button.ariaLabel = t("map.controls.measure");
+			this.button.ariaLabel = "Measure";
 		}
 
 		this.lineLayer = layerGroup().addTo(this.map);
@@ -99,7 +98,7 @@ export class MeasureControl extends SubControl {
 		const secondLastCoordinate = this.pathItems.at(-2);
 		if (secondLastCoordinate === undefined) return;
 
-		this.distance += distance(lastCoordinate, secondLastCoordinate) * this.options.scale;
+		this.distance += distance(lastCoordinate, secondLastCoordinate) * this.mapConfig.scale;
 	}
 
 	private renderPreview(mouseCoordinate: LatLng): void {
@@ -113,7 +112,7 @@ export class MeasureControl extends SubControl {
 			?.setLatLng(mouseCoordinate)
 			.setContent(
 				this.getContent(
-					this.distance + distance(lastCoordinate, mouseCoordinate) * this.options.scale,
+					this.distance + distance(lastCoordinate, mouseCoordinate) * this.mapConfig.scale,
 				),
 			);
 	}
@@ -150,6 +149,6 @@ export class MeasureControl extends SubControl {
 	}
 
 	private getContent(measurement: number): string {
-		return `${measurement.toFixed(1)} ${this.options?.unit ?? C.map.default.unit}`;
+		return `${measurement.toFixed(1)} ${this.mapConfig.unit}`;
 	}
 }

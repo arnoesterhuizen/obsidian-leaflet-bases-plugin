@@ -3,13 +3,15 @@ import { App } from "obsidian";
 import { Map } from "@plugin/bases/leaflet-map/map/map";
 import { ViewUtil } from "@plugin/bases/leaflet-map/viewUtil";
 import { Constants as C } from "@plugin/constants";
-import { RequiredMapObject } from "@plugin/types";
+import { Frontmatter } from "@plugin/properties/frontmatter";
+import { MapConfig } from "@plugin/types";
 
 export interface SubControlOptions {
 	index: number;
 	map: Map;
 	app: App;
 	viewUtil: ViewUtil;
+	frontmatter: Frontmatter;
 	onSelectCallback: (index: number) => void;
 }
 
@@ -18,14 +20,20 @@ export class SubControl {
 	readonly map: Map;
 	protected readonly app: App;
 	protected readonly viewUtil: ViewUtil;
+	protected readonly frontmatter: Frontmatter;
 
 	private onSelectCallback: (index: number) => void = () => {};
-	protected refreshCallback: () => void = () => {};
-	protected button: HTMLButtonElement | undefined;
-	protected options: RequiredMapObject = {
+	protected mapConfig: MapConfig = {
 		...C.map.default,
 		defaultZoom: C.map.default.minZoom,
 		image: "",
+		overlays: [],
+		geojson: [],
+		rivers: [],
+		markerProperty: C.marker.defaultProperty,
+		regionProperty: C.region.defaultProperty,
+		pathProperty: C.path.defaultProperty,
+		styleOverrides: [],
 	};
 
 	private _isSelected: boolean = false;
@@ -38,6 +46,7 @@ export class SubControl {
 		this.map = options.map;
 		this.app = options.app;
 		this.viewUtil = options.viewUtil;
+		this.frontmatter = options.frontmatter;
 		this.onSelectCallback = options.onSelectCallback;
 	}
 
@@ -54,21 +63,24 @@ export class SubControl {
 		}
 	}
 
+	private clickHandler: () => void = () => this.onSelectCallback(this.index);
+	protected button: HTMLButtonElement | undefined;
+
 	onAdd(containerEl: HTMLElement): void {
 		this.button = DomUtil.create("button", "leaflet-control-button", containerEl);
-		this.button.addEventListener("click", () => this.onSelectCallback(this.index));
+		this.button.addEventListener("click", this.clickHandler);
 		DomEvent.disableClickPropagation(containerEl);
 		this.onAdded();
 	}
 
 	onRemove(): void {
 		this.onRemoved();
-		this.button?.removeEventListener("click", () => {});
+		this.button?.removeEventListener("click", this.clickHandler);
 		this.button?.replaceChildren();
 	}
 
-	updateSettings(options: RequiredMapObject): void {
-		this.options = { ...this.options, ...options };
+	updateSettings(config: MapConfig): void {
+		this.mapConfig = config;
 	}
 
 	protected onAdded(): void {

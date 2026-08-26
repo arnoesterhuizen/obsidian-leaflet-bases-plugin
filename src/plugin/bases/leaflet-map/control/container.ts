@@ -2,7 +2,8 @@ import { Control, DomUtil, Map as LeafletMap } from "leaflet";
 import { App } from "obsidian";
 import { Map } from "@plugin/bases/leaflet-map/map/map";
 import { ViewUtil } from "@plugin/bases/leaflet-map/viewUtil";
-import { BasesLeafletViewSettings, RequiredMapObject } from "@plugin/types";
+import { Frontmatter } from "@plugin/properties/frontmatter";
+import { BasesLeafletViewSettings, MapConfig } from "@plugin/types";
 import { CreateNoteControl, MeasureControl, PanControl } from "./sub";
 import { DragControl } from "./sub/drag";
 import { SubControl } from "./subControl";
@@ -16,6 +17,7 @@ export class ControlContainer extends Control {
 		private app: App,
 		private viewUtil: ViewUtil,
 		private pluginSettings: BasesLeafletViewSettings,
+		private frontmatter: Frontmatter,
 	) {
 		super({ position: "topleft" });
 	}
@@ -47,8 +49,8 @@ export class ControlContainer extends Control {
 		this.controls = [];
 	}
 
-	updateSettings(options: RequiredMapObject): void {
-		this.controls.forEach((control) => control.updateSettings(options));
+	updateSettings(config: MapConfig): void {
+		this.controls.forEach((control) => control.updateSettings(config));
 	}
 
 	private registerSubControl(control: typeof SubControl, map: Map): void {
@@ -62,6 +64,7 @@ export class ControlContainer extends Control {
 			map,
 			app: this.app,
 			viewUtil: this.viewUtil,
+			frontmatter: this.frontmatter,
 			onSelectCallback,
 		};
 		this.controls.push(new control(options));

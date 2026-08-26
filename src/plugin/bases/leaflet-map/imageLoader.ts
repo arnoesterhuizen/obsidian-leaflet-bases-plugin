@@ -18,7 +18,6 @@ export class ImageLoader {
 			const image = new Image();
 			image.onload = () => {
 				const { width, height } = image;
-				image.detach();
 				resolve([
 					[0, 0],
 					[height, width],
