@@ -1,5 +1,4 @@
 import { App, FuzzySuggestModal } from "obsidian";
-import { t } from "@plugin/i18n/locale";
 import { MapCandidate } from "./mapCandidates";
 
 export class BaseMapPickerModal extends FuzzySuggestModal<MapCandidate> {
@@ -9,7 +8,7 @@ export class BaseMapPickerModal extends FuzzySuggestModal<MapCandidate> {
 		private onChoose: (candidate: MapCandidate) => void,
 	) {
 		super(app);
-		this.setPlaceholder(t("marker.picker.baseModal.placeholder"));
+		this.setPlaceholder("Select a base with a Leaflet map view");
 	}
 
 	getItems(): MapCandidate[] {
@@ -17,7 +16,7 @@ export class BaseMapPickerModal extends FuzzySuggestModal<MapCandidate> {
 	}
 
 	getItemText(candidate: MapCandidate): string {
-		const mapName = candidate.settings.name;
+		const mapName = candidate.settings.mapName;
 		const base = `${candidate.file.basename} — ${candidate.viewName}`;
 		return mapName ? `${base} (${mapName})` : base;
 	}

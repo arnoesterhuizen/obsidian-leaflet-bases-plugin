@@ -1,22 +1,9 @@
-import { App, ButtonComponent, ColorComponent, DropdownComponent, Modal, Setting } from "obsidian";
-import { Constants as C } from "@plugin/constants";
-import { t } from "@plugin/i18n/locale";
+import { App, ButtonComponent, Modal, Setting } from "obsidian";
 import { MarkerModalMode, MarkerObject } from "@plugin/types";
 import { SchemaValidator } from "@plugin/validation/schemaValidators";
 import { Validator } from "@plugin/validation/validators";
-import { IconPreviewComponent } from "./iconPreviewComponent";
-import { IconSuggest } from "./iconSuggest";
 import { MarkerModalErrorComponent } from "./markerModalErrorComponent";
 import { openMatchingMap } from "./openMatchingMap";
-
-function buildColourOptionsObject(): Record<string, string> {
-	return Object.fromEntries(
-		Object.entries(C.property.predefinedColours).map(([key, value]) => [
-			key,
-			t(`modal.colour.predefined.${value}`),
-		]),
-	);
-}
 
 export class MarkerModal<T extends MarkerObject> extends Modal {
 	protected value: Partial<MarkerObject>;
@@ -27,25 +14,30 @@ export class MarkerModal<T extends MarkerObject> extends Modal {
 	constructor(
 		app: App,
 		protected onSubmit: (result: T) => void,
-		initialValue: MarkerObject | undefined,
+		initialValue: Partial<MarkerObject> | undefined,
 		protected mode: MarkerModalMode,
 	) {
 		super(app);
-		this.setTitle(t(`modal.title.${this.mode}`));
+		this.setTitle(this.mode === MarkerModalMode.Add ? "Add marker" : "Edit marker");
 
 		this.value = { ...initialValue };
 	}
 
 	override onOpen(): void {
 		this.addSettings();
+
+		// Submit on Enter key
+		this.scope.register([], "Enter", (event) => {
+			if (!event.isComposing) {
+				event.preventDefault();
+				this.submit();
+			}
+		});
 	}
 
 	protected addSettings() {
-		this.addMapNameSetting();
+		this.addMapSetting();
 		this.addCoordinatesSetting();
-		this.addIconSetting();
-		this.addColourSetting();
-		this.addMinZoomSetting();
 
 		this.addConfirmButton();
 	}
@@ -54,30 +46,30 @@ export class MarkerModal<T extends MarkerObject> extends Modal {
 		this.submitEnabledCallback = cb;
 	}
 
-	private addMapNameSetting(): void {
+	private addMapSetting(): void {
 		new Setting(this.contentEl)
-			.setName(t("modal.mapName.title"))
-			.setDesc(t("modal.mapName.description"))
+			.setName("Map")
+			.setDesc("Optional. Name of the map this marker is specific to. Useful if you want to add this note as a marker to multiple different maps.")
 			.addText((textField) => {
 				textField
-					.setValue(this.value.mapName ?? "")
-					.onChange((value) => (this.value.mapName = value !== "" ? value : undefined));
+					.setValue(this.value.map ?? "")
+					.onChange((value) => (this.value.map = value !== "" ? value : undefined));
 			});
 	}
 
 	private addCoordinatesSetting(): void {
 		let coordinatesError: MarkerModalErrorComponent;
 		new Setting(this.contentEl)
-			.setName(t("modal.coordinates.title"))
-			.setDesc(t("modal.coordinates.description"))
+			.setName("Coordinates")
+			.setDesc("Required. Marker coordinates on the map.")
 			.setClass("bases-leaflet-view-setting-vertical")
 			.addText((textField) => {
 				textField.setValue(this.value.coordinates ?? "").onChange((value) => {
 					if (value === "") {
-						coordinatesError.setMessage(t("modal.coordinates.error.required"));
+						coordinatesError.setMessage("Value is required");
 						this.submitEnabledCallback(false);
 					} else if (!Validator.coordinates(value)) {
-						coordinatesError.setMessage(t("modal.coordinates.error.invalid"));
+						coordinatesError.setMessage("Value not a valid coordinate");
 						this.submitEnabledCallback(false);
 					} else {
 						coordinatesError.setMessage("");
@@ -94,92 +86,32 @@ export class MarkerModal<T extends MarkerObject> extends Modal {
 			});
 
 		new Setting(this.contentEl)
-			.setName(t("modal.openMap.title"))
-			.setDesc(t("modal.openMap.description"))
+			.setName("Show on map")
+			.setDesc("Open the base and Leaflet map view this marker belongs to.")
 			.addButton((button) => {
 				button
-					.setButtonText(t("modal.openMap.button"))
-					.onClick(() => void openMatchingMap(this.app, this.value.mapName));
-			});
-	}
-
-	private addIconSetting(): void {
-		let iconPreview: IconPreviewComponent;
-		new Setting(this.contentEl)
-			.setName(t("modal.icon.title"))
-			.setDesc(t("modal.icon.description"))
-			.addComponent((containerEl) => {
-				iconPreview = new IconPreviewComponent(containerEl).setIcon(this.value.icon);
-				return iconPreview;
-			})
-			.addSearch((searchField) => {
-				searchField
-					.setValue(this.value.icon ?? "")
-					.setPlaceholder(t("modal.icon.placeholder"))
-					.onChange((value) => {
-						this.value.icon = value !== "" ? value : undefined;
-						iconPreview.setIcon(this.value.icon);
-					});
-				new IconSuggest(this.app, searchField);
-			});
-	}
-
-	private addColourSetting(): void {
-		let colourComponent: ColorComponent;
-		let dropdownComponent: DropdownComponent;
-		new Setting(this.contentEl)
-			.setName(t("modal.colour.title"))
-			.setDesc(t("modal.colour.description"))
-			.addColorPicker((colourField) => {
-				colourComponent = colourField;
-				colourField.setValue(this.value.colour ?? C.marker.defaultColour).onChange((value) => {
-					if (Validator.colour(value)) {
-						this.value.colour = value;
-						dropdownComponent.setValue(value);
-					}
-				});
-			})
-			.addDropdown((dropdownField) => {
-				dropdownComponent = dropdownField;
-				dropdownField
-					.addOptions(buildColourOptionsObject())
-					.setValue(this.value.colour ?? C.marker.defaultColour)
-					.onChange((value) => {
-						if (Validator.colour(value)) {
-							this.value.colour = value;
-							colourComponent.setValue(value);
-						}
-					});
-			});
-	}
-
-	private addMinZoomSetting(): void {
-		new Setting(this.contentEl)
-			.setName(t("modal.minZoom.title"))
-			.setDesc(t("modal.minZoom.description"))
-			.addText((textField) => {
-				textField.inputEl.type = "number";
-				textField
-					.setValue(this.value.minZoom?.toString() ?? "")
-					.onChange((value) => (this.value.minZoom = value !== "" ? Number(value) : undefined));
+					.setButtonText("Open map")
+					.onClick(() => void openMatchingMap(this.app, this.value.map));
 			});
 	}
 
 	private addConfirmButton(): void {
-		new Setting(this.contentEl).addButton((button) => {
-			button
-				.setButtonText(t(`modal.submit.${this.mode}`))
-				.setCta()
-				.onClick(() => {
-					if (SchemaValidator.marker(this.value)) {
-						this.close();
-						this.onSubmit(this.value as T);
-					}
-				});
-			this.setSubmitEnabledCallback((isEnabled) => {
-				button.setDisabled(!isEnabled);
-			});
-			this.confirmButton = button;
+		const footer = this.contentEl.createDiv({ cls: "modal-button-container" });
+		const button = new ButtonComponent(footer);
+		button
+			.setButtonText(this.mode === MarkerModalMode.Add ? "Add marker" : "Save")
+			.setCta()
+			.onClick(() => this.submit());
+		this.setSubmitEnabledCallback((isEnabled) => {
+			button.setDisabled(!isEnabled);
 		});
+		this.confirmButton = button;
+	}
+
+	protected submit(): void {
+		if (SchemaValidator.marker(this.value)) {
+			this.close();
+			this.onSubmit(this.value as T);
+		}
 	}
 }

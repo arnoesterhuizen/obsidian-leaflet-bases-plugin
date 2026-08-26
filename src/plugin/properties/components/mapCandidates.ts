@@ -1,13 +1,13 @@
 import { App, BasesConfigFile, BasesConfigFileView, parseYaml, TFile } from "obsidian";
 import { Constants as C } from "@plugin/constants";
-import { MapObject, RequiredMapObject } from "@plugin/types";
-import { fillMapDefaults, isNotNull } from "@plugin/util";
-import { SchemaValidator } from "@plugin/validation/schemaValidators";
+import { MapConfig } from "@plugin/types";
+import { fillMapConfigDefaults, isNotNull } from "@plugin/util";
+import { Validator } from "@plugin/validation/validators";
 
 export interface MapCandidate {
 	file: TFile;
 	viewName: string;
-	settings: RequiredMapObject;
+	settings: MapConfig;
 }
 
 type RawView = BasesConfigFileView & Record<string, unknown>;
@@ -58,21 +58,24 @@ function parseConfig(yaml: string): BasesConfigFile | null {
 }
 
 function toCandidate(file: TFile, view: RawView): MapCandidate | null {
-	const raw: MapObject = {
-		name: toStringOrUndefined(view[C.view.obsidianIdentifiers.mapName]),
-		image: normaliseImage(view[C.view.obsidianIdentifiers.image]) ?? "",
-		height: toNumberOrUndefined(view[C.view.obsidianIdentifiers.height]),
-		minZoom: toNumberOrUndefined(view[C.view.obsidianIdentifiers.minZoom]),
-		maxZoom: toNumberOrUndefined(view[C.view.obsidianIdentifiers.maxZoom]),
-		defaultZoom: toNumberOrUndefined(view[C.view.obsidianIdentifiers.defaultZoom]),
-		zoomDelta: toNumberOrUndefined(view[C.view.obsidianIdentifiers.zoomDelta]),
-		scale: toNumberOrUndefined(view[C.view.obsidianIdentifiers.scale]),
-		unit: toStringOrUndefined(view[C.view.obsidianIdentifiers.unit]),
-	};
+	const image = normaliseImage(view[C.view.keys.image]);
+	if (!image) return null;
 
-	if (!SchemaValidator.map(raw)) return null;
+	if (!Validator.source(image)) return null;
 
-	return { file, viewName: view.name, settings: fillMapDefaults(raw) };
+	const settings = fillMapConfigDefaults({
+		image,
+		mapName: toStringOrUndefined(view[C.view.keys.mapName]),
+		height: toNumberOrUndefined(view[C.view.keys.height]),
+		minZoom: toNumberOrUndefined(view[C.view.keys.minZoom]),
+		maxZoom: toNumberOrUndefined(view[C.view.keys.maxZoom]),
+		defaultZoom: toNumberOrUndefined(view[C.view.keys.defaultZoom]),
+		zoomDelta: toNumberOrUndefined(view[C.view.keys.zoomDelta]),
+		scale: toNumberOrUndefined(view[C.view.keys.scale]),
+		unit: toStringOrUndefined(view[C.view.keys.unit]),
+	});
+
+	return { file, viewName: view.name, settings };
 }
 
 function normaliseImage(value: unknown): string | undefined {

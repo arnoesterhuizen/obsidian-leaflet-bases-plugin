@@ -1,5 +1,4 @@
 import { App, Notice } from "obsidian";
-import { t } from "@plugin/i18n/locale";
 import { Coordinates, MarkerModalMode, MarkerObject } from "@plugin/types";
 import { BaseMapPickerModal } from "./baseMapPickerModal";
 import { findLeafletMapCandidates, MapCandidate } from "./mapCandidates";
@@ -27,11 +26,13 @@ export class MarkerAddComponent {
 	private async pickCoordinatesThenAddMarker(app: App): Promise<void> {
 		const candidates = await findLeafletMapCandidates(app);
 		if (candidates.length === 0) {
-			new Notice(t("marker.picker.notice.noMaps"));
+			new Notice("No Leaflet map views found in this vault");
 			return;
 		}
 
-		new BaseMapPickerModal(app, candidates, (candidate) => this.pickCoordinates(app, candidate)).open();
+		new BaseMapPickerModal(app, candidates, (candidate) =>
+			this.pickCoordinates(app, candidate),
+		).open();
 	}
 
 	private pickCoordinates(app: App, candidate: MapCandidate): void {
@@ -44,7 +45,7 @@ export class MarkerAddComponent {
 		new MarkerModal(
 			app,
 			(result) => this.onChangeCallback(result),
-			{ coordinates, mapName: candidate.settings.name },
+			{ coordinates, map: candidate.settings.mapName },
 			MarkerModalMode.Add,
 		).open();
 	}
@@ -64,7 +65,7 @@ export class MarkerAddComponent {
 				width: "14",
 				height: "14",
 				viewBox: "0 0 14 14",
-				stroke: "#ebebec",
+				stroke: "currentColor",
 				"stroke-width": "1",
 				"stroke-linecap": "round",
 				"stroke-linejoin": "round",

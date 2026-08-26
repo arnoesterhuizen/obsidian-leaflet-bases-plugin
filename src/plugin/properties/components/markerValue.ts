@@ -22,7 +22,7 @@ export class MarkerValueComponent extends ValueComponent<MarkerObject> {
 		this.tagEl = activeWindow.createEl("li");
 		this.tagEl.addClass("leaflet-map-property-tag-item");
 
-		this.tagEl.setCssStyles({ background: value.colour ?? C.marker.defaultColour });
+		this.tagEl.setCssStyles({ background: C.marker.defaultColor });
 
 		this.iconEl = this.tagEl.createDiv({ cls: "leaflet-map-property-tag-item-icon" });
 		this.textEl = this.tagEl.createDiv({ cls: "leaflet-map-property-tag-item-text" });
@@ -84,8 +84,8 @@ export class MarkerValueComponent extends ValueComponent<MarkerObject> {
 	}
 
 	private updateElements() {
-		this.iconEl.replaceChildren(getIconWithDefault(this.value.icon));
-		this.textEl.textContent = `${this.value.mapName ? `${this.value.mapName}: ` : ""}${this.value.coordinates}`;
+		this.iconEl.replaceChildren(getIconWithDefault(undefined));
+		this.textEl.textContent = `${this.value.map ? `${this.value.map}: ` : ""}${this.value.coordinates}`;
 	}
 
 	private createCloseButton(closeEl: HTMLDivElement): void {
@@ -94,7 +94,7 @@ export class MarkerValueComponent extends ValueComponent<MarkerObject> {
 				width: "14",
 				height: "14",
 				viewBox: "0 0 14 14",
-				stroke: "#ebebec",
+				stroke: "currentColor",
 				"stroke-width": "1",
 				"stroke-linecap": "round",
 				"stroke-linejoin": "round",

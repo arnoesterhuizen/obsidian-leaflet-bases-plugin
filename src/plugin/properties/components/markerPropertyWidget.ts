@@ -4,16 +4,14 @@ import {
 	PropertyWidgetComponentBase,
 } from "obsidian-typings";
 import { Constants as C } from "@plugin/constants";
-import { t } from "@plugin/i18n/locale";
 import { MarkerObject } from "@plugin/types";
-import { isArray } from "@plugin/util";
 import { SchemaValidator } from "@plugin/validation/schemaValidators";
 import { MarkerAddComponent } from "./markerAdd";
 import { MarkerValueComponent } from "./markerValue";
 
 export const markerWidget: PropertyWidget<MarkerPropertyWidgetComponent> = {
 	type: C.property.marker.identifier,
-	name: () => t("marker.name"),
+	name: () => "Coordinate",
 	icon: C.property.marker.icon,
 	validate: validateMarkerPropertyValue,
 	render: (element: HTMLElement, value: unknown, ctx: PropertyRenderContext) =>
@@ -22,11 +20,18 @@ export const markerWidget: PropertyWidget<MarkerPropertyWidgetComponent> = {
 			validateMarkerPropertyValue(value) ? value : [],
 			ctx,
 		),
-	reservedKeys: [C.property.marker.identifier],
+	reservedKeys: ["marker", "region", "path"],
 };
 
 function validateMarkerPropertyValue(propertyValue: unknown): propertyValue is MarkerObject[] {
-	return isArray(propertyValue, SchemaValidator.marker);
+	if (!Array.isArray(propertyValue)) return false;
+	// Accept values that pass any coordinate schema (marker, region, or path)
+	return propertyValue.every(
+		(item) =>
+			SchemaValidator.marker(item) ||
+			SchemaValidator.region(item) ||
+			SchemaValidator.path(item),
+	);
 }
 
 class MarkerPropertyWidgetComponent implements PropertyWidgetComponentBase {

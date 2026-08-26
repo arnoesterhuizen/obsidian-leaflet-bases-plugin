@@ -3,7 +3,12 @@ import { BasesLeafletViewSettings, Manager } from "@plugin/types";
 import { BasesLeafletViewSettingsTab } from "./basesLeafletViewSettingsTab";
 
 export class SettingsManager extends Manager {
-	private defaultData: BasesLeafletViewSettings = { ...C.settings.default, iconData: [] };
+	private defaultData: BasesLeafletViewSettings = {
+		...C.settings.default,
+		geojsonDefaultColors: [...C.settings.default.geojsonDefaultColors],
+		styleRules: [...C.settings.default.styleRules],
+		iconData: [],
+	};
 	private _settings: BasesLeafletViewSettings = { ...this.defaultData };
 	get settings(): BasesLeafletViewSettings {
 		return this._settings;
