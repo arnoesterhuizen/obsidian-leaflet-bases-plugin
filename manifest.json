@@ -1,10 +1,10 @@
 {
-	"id": "leaflet-bases",
+	"id": "leaflet-bases-fork",
 	"name": "Leaflet bases",
-	"description": "Interactive map view inside your bases.",
+	"description": "Interactive map view inside your bases. Forked from Requiae/obsidian-leaflet-bases-plugin.",
 	"version": "1.2.0",
 	"minAppVersion": "1.11.4",
-	"author": "Sara Lilith Slootmaker",
-	"authorUrl": "https://github.com/Requiae",
+	"author": "Arno Esterhuizen (fork of Sara Lilith Slootmaker / Requiae)",
+	"authorUrl": "https://github.com/arnoe",
 	"isDesktopOnly": false
 }

@@ -20,7 +20,6 @@
 		"strictBindCallApply": true,
 		"allowSyntheticDefaultImports": true,
 		"useUnknownInCatchVariables": true,
-		"types": ["jest"],
 		"lib": ["DOM", "ES2022"]
 	},
 	"include": ["src/**/*.ts", "test/**/*"]

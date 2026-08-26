@@ -1,12 +1,24 @@
 {
 	"name": "obsidian-leaflet-bases-plugin",
 	"version": "1.2.0",
-	"description": "Interactive map view inside your bases",
+	"description": "Interactive map view inside your bases. Forked from Requiae/obsidian-leaflet-bases-plugin.",
 	"main": "main.js",
 	"type": "module",
+	"author": "Arno Esterhuizen",
+	"contributors": [
+		{
+			"name": "Sara Lilith Slootmaker",
+			"url": "https://github.com/Requiae"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arnoe/obsidian-leaflet-bases-plugin"
+	},
 	"scripts": {
-		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"dev": "node build-styles.mjs && node esbuild.config.mjs",
+		"build": "node build-styles.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build:styles": "node build-styles.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint .",
 		"test": "vitest"
@@ -19,19 +31,15 @@
 		"@eslint/js": "^10.0.1",
 		"@ianvs/prettier-plugin-sort-imports": "^4.7.1",
 		"@iconify/types": "^2.0.0",
-		"@jest/globals": "^30.4.1",
-		"@types/jest": "^30.0.0",
 		"@types/leaflet": "^1.9.22",
 		"@types/node": "26.2.0",
 		"esbuild": "0.28.2",
 		"eslint": "^10.8.1",
 		"eslint-plugin-obsidianmd": "0.4.1",
 		"globals": "^17.11.0",
-		"jest": "^30.4.2",
 		"jiti": "2.7.0",
 		"obsidian": "latest",
 		"obsidian-typings": "latest",
-		"ts-jest": "^29.4.12",
 		"ts-node": "^10.9.2",
 		"tslib": "2.8.1",
 		"typescript": "^6.0.3",
