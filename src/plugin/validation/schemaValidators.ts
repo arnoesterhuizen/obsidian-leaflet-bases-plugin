@@ -1,13 +1,6 @@
 import { iconifyJsonSchema } from "@plugin/icons/iconSchemas";
-import { mapSchema, markerSchema } from "@plugin/properties/propertySchemas";
-import {
-	IconifyJSONIconsObject,
-	MapObject,
-	MarkerObject,
-	Schema,
-	StringMap,
-	ValidatorFunction,
-} from "@plugin/types";
+import { markerSchema, pathSchema, regionSchema } from "@plugin/properties/propertySchemas";
+import { IconifyJSONIconsObject, MarkerObject, PathObject, RegionObject, Schema, StringMap, ValidatorFunction } from "@plugin/types";
 import { Validator } from "./validators";
 
 export function schemaValidatorFactory<T extends StringMap>(
@@ -28,5 +21,6 @@ export function schemaValidatorFactory<T extends StringMap>(
 export const SchemaValidator = {
 	icon: schemaValidatorFactory<IconifyJSONIconsObject>(iconifyJsonSchema),
 	marker: schemaValidatorFactory<MarkerObject>(markerSchema),
-	map: schemaValidatorFactory<MapObject>(mapSchema),
+	region: schemaValidatorFactory<RegionObject>(regionSchema),
+	path: schemaValidatorFactory<PathObject>(pathSchema),
 } as const satisfies Record<string, ValidatorFunction<StringMap>>;

@@ -32,12 +32,16 @@ function coordinatesValidator(value: unknown): value is Coordinates {
 	return typeof value === "string" && C.regExp.coordinatesValidation.test(value);
 }
 
+function boundsValidator(value: unknown): value is string {
+	return typeof value === "string" && C.regExp.boundsValidation.test(value);
+}
+
 function iconValidator(value: unknown): value is IconName {
 	return typeof value === "string" && C.regExp.iconValidation.test(value);
 }
 
-function colourValidator(value: unknown): value is Hex {
-	return typeof value === "string" && C.regExp.hexColourValidation.test(value);
+function colorValidator(value: unknown): value is Hex {
+	return typeof value === "string" && C.regExp.hexColorValidation.test(value);
 }
 
 function booleanValidator(value: unknown): value is boolean {
@@ -54,7 +58,7 @@ function latLngTupleValidator(value: unknown): value is LatLngTuple {
 
 function stringMapValidator(value: unknown): value is StringMap {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-	return Object.keys(value).length > 0;
+	return true;
 }
 
 export const Validator = {
@@ -63,8 +67,9 @@ export const Validator = {
 	number: numberValidator,
 	positiveNumber: positiveNumberValidator,
 	coordinates: coordinatesValidator,
+	bounds: boundsValidator,
 	icon: iconValidator,
-	colour: colourValidator,
+	color: colorValidator,
 	boolean: booleanValidator,
 	url: urlValidator,
 	ignore: ignoreValidator,

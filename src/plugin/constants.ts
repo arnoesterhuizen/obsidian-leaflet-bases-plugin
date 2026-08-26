@@ -1,8 +1,8 @@
 export const Constants = {
 	map: {
 		default: {
-			minZoom: 0,
-			maxZoom: 2,
+			minZoom: 1,
+			maxZoom: 10,
 			zoomDelta: 0.5,
 			zoomSnap: 0.01,
 			height: 600,
@@ -21,14 +21,27 @@ export const Constants = {
 		},
 	},
 	marker: {
-		defaultColour: "#21409a",
+		defaultColor: "#21409a",
+		defaultProperty: "note.marker",
+		defaultIconProperty: "note.icon",
+		defaultColorProperty: "note.color",
+	},
+	region: {
+		defaultColor: "#33cc6680",
+		defaultProperty: "note.region",
+		defaultColorProperty: "note.regionColor",
+	},
+	path: {
+		defaultColor: "#ff663380",
+		defaultProperty: "note.path",
+		defaultColorProperty: "note.pathColor",
 	},
 	property: {
 		marker: {
-			identifier: "marker",
+			identifier: "coordinate",
 			icon: "lucide-map-pin",
 		},
-		predefinedColours: {
+		predefinedColors: {
 			"#039c4b": "green",
 			"#66d313": "lime",
 			"#e2c505": "yellow",
@@ -42,8 +55,9 @@ export const Constants = {
 		},
 	},
 	regExp: {
-		hexColourValidation: /^#([0-9A-F]{3}){1,2}$$/i,
-		coordinatesValidation: /^\s*[0-9]+\s*,\s*[0-9]+\s*$/,
+		hexColorValidation: /^#([0-9A-F]{3}){1,2}$$/i,
+		coordinatesValidation: /^\s*-?[0-9]+(\.[0-9]+)?\s*,\s*-?[0-9]+(\.[0-9]+)?\s*$/,
+		boundsValidation: /^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s+-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/,
 		// eslint-disable-next-line no-useless-escape -- keep the escape for readability of the hyphen inside the character class
 		iconValidation: /^([a-z]+([\-][a-z]+)*:)?[a-z]+([\-][a-z]+)*([\-][0-9]+)?$/,
 		url: /https?:/,
@@ -54,6 +68,34 @@ export const Constants = {
 			enableMeasureTool: true,
 			enableDragTool: true,
 			enableCreateNoteTool: true,
+			geojsonDefaultColors: [
+				"#3388ff",
+				"#ff6633",
+				"#33cc66",
+				"#cc33ff",
+				"#ffcc00",
+				"#00cccc",
+				"#ff3366",
+				"#6699ff",
+			],
+			styleRules: [
+				{ group: "populated-places", icon: "circle", color: "#FF0000" },
+				{ group: "populated-places", featureClass: "Town", icon: "circle-small", color: "#FF8080" },
+				{ group: "populated-places", featureClass: "Village", icon: "circle-dot", color: "#FFB0B0" },
+				{ group: "important-sites", icon: "landmark", color: "#6600cc" },
+				{ group: "important-sites", featureClass: "Temple", icon: "church", color: "#FFD700" },
+				{ group: "important-sites", featureClass: "Fortification", icon: "castle", color: "#cc99ff" },
+				{ group: "landmarks", icon: "mountain", color: "#228B22" },
+				{ group: "rivers", color: "#4488cc", weight: 2 },
+				{ group: "pathways", icon: "signpost", color: "#8B4513", weight: 2 },
+				{ group: "pathways", featureClass: "Primary Road", color: "#FF6600", weight: 3 },
+				{ group: "pathways", featureClass: "Secondary Road", color: "#CC9966", weight: 2 },
+				{ group: "pathways", featureClass: "Underwater Tunnel", icon: "cable", color: "#006699" },
+				{ group: "lakes", color: "#3388ff", weight: 1 },
+				{ group: "land-regions", color: "#88aa44", weight: 1 },
+				{ group: "named-regions", color: "#996633", weight: 2 },
+				{ group: "domains", color: "#663399", weight: 2 },
+			],
 		},
 		links: {
 			preview: "https://icon-sets.iconify.design/",
@@ -63,8 +105,8 @@ export const Constants = {
 	view: {
 		type: "leaflet-map",
 		icon: "lucide-map",
-		obsidianIdentifiers: {
-			mapName: "mapName",
+		keys: {
+			mapName: "map",
 			image: "image",
 			height: "height",
 			minZoom: "minZoom",
@@ -74,6 +116,18 @@ export const Constants = {
 			scale: "scale",
 			unit: "unit",
 			center: "center",
+			bounds: "bounds",
+			overlays: "overlays",
+			geojson: "geojson",
+			rivers: "rivers",
+			styles: "styles",
+			markerProperty: "markerProperty",
+			markerIcon: "markerIcon",
+			markerColor: "markerColor",
+			regionProperty: "regionProperty",
+			regionColor: "regionColor",
+			pathProperty: "pathProperty",
+			pathColor: "pathColor",
 		},
 		config: {
 			height: {
