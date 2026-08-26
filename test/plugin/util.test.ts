@@ -1,7 +1,7 @@
 import { LatLngLiteral } from "leaflet";
 import { describe, expect, test } from "vitest";
 import { Coordinates } from "@plugin/types";
-import { clamp, distance, fillMapDefaults, isNotNull, parseCoordinates } from "@plugin/util";
+import { clamp, distance, fillMapConfigDefaults, isNotNull, parseCoordinates } from "@plugin/util";
 
 describe("Clamp function", () => {
 	const minimum = 2;
@@ -29,37 +29,50 @@ describe("Clamp function", () => {
 	});
 });
 
-describe("Fill map defaults function", () => {
+describe("Fill map config defaults function", () => {
 	test("fills in all defaults when only image is provided", () => {
-		expect(fillMapDefaults({ image: "map.png" })).toEqual({
-			name: undefined,
+		const result = fillMapConfigDefaults({ image: "map.png" });
+		expect(result).toEqual({
 			image: "map.png",
 			height: 600,
-			minZoom: 0,
-			maxZoom: 2,
-			defaultZoom: 0,
+			mapName: undefined,
+			center: undefined,
+			bounds: undefined,
+			overlays: [],
+			geojson: [],
+			rivers: [],
+			markerProperty: "note.marker",
+			markerIconProperty: undefined,
+			markerColorProperty: undefined,
+			regionProperty: "note.region",
+			regionColorProperty: undefined,
+			pathProperty: "note.path",
+			pathColorProperty: undefined,
+			minZoom: 1,
+			maxZoom: 10,
+			defaultZoom: 1,
 			zoomDelta: 0.5,
 			scale: 1,
 			unit: "",
+			styleOverrides: [],
 		});
 	});
 
 	test("keeps provided values", () => {
-		expect(
-			fillMapDefaults({
-				name: "First floor",
-				image: "map.png",
-				height: 400,
-				minZoom: 1,
-				maxZoom: 5,
-				defaultZoom: 3,
-				zoomDelta: 1,
-				scale: 2,
-				unit: "m",
-			}),
-		).toEqual({
-			name: "First floor",
+		const result = fillMapConfigDefaults({
 			image: "map.png",
+			mapName: "First floor",
+			height: 400,
+			minZoom: 1,
+			maxZoom: 5,
+			defaultZoom: 3,
+			zoomDelta: 1,
+			scale: 2,
+			unit: "m",
+		});
+		expect(result).toMatchObject({
+			image: "map.png",
+			mapName: "First floor",
 			height: 400,
 			minZoom: 1,
 			maxZoom: 5,
@@ -71,12 +84,16 @@ describe("Fill map defaults function", () => {
 	});
 
 	test("clamps defaultZoom within minZoom and maxZoom", () => {
-		expect(fillMapDefaults({ image: "map.png", minZoom: 1, maxZoom: 5, defaultZoom: 0 }).defaultZoom).toEqual(1);
-		expect(fillMapDefaults({ image: "map.png", minZoom: 1, maxZoom: 5, defaultZoom: 8 }).defaultZoom).toEqual(5);
+		expect(
+			fillMapConfigDefaults({ image: "map.png", minZoom: 1, maxZoom: 5, defaultZoom: 0 }).defaultZoom,
+		).toEqual(1);
+		expect(
+			fillMapConfigDefaults({ image: "map.png", minZoom: 1, maxZoom: 5, defaultZoom: 8 }).defaultZoom,
+		).toEqual(5);
 	});
 
 	test("raises maxZoom to at least minZoom", () => {
-		expect(fillMapDefaults({ image: "map.png", minZoom: 4, maxZoom: 2 }).maxZoom).toEqual(4);
+		expect(fillMapConfigDefaults({ image: "map.png", minZoom: 4, maxZoom: 2 }).maxZoom).toEqual(4);
 	});
 });
 

@@ -244,6 +244,8 @@ describe("Coordinates validator", () => {
 		expect(validator("1, 123")).toEqual(true);
 		expect(validator("0,0")).toEqual(true);
 		expect(validator("   0  , 1234   ")).toEqual(true);
+		expect(validator("-1, 231")).toEqual(true);
+		expect(validator("-5, -10")).toEqual(true);
 	});
 
 	describe("returns false on", () => {
@@ -251,7 +253,6 @@ describe("Coordinates validator", () => {
 			expect(validator("")).toEqual(false);
 			expect(validator("e, 234")).toEqual(false);
 			expect(validator("a, a")).toEqual(false);
-			expect(validator("-1, 231")).toEqual(false);
 			expect(validator(", 231")).toEqual(false);
 			expect(validator("-1,")).toEqual(false);
 			expect(validator("1, 231, 1")).toEqual(false);
@@ -352,10 +353,10 @@ describe("Icon validator", () => {
 	});
 });
 
-describe("Colour validator", () => {
-	const validator = Validator.colour;
+describe("Color validator", () => {
+	const validator = Validator.color;
 
-	test("returns true on valid colour string value", () => {
+	test("returns true on valid color string value", () => {
 		expect(validator("#fff")).toEqual(true);
 		expect(validator("#02adf3")).toEqual(true);
 		expect(validator("#FFa")).toEqual(true);
@@ -363,7 +364,7 @@ describe("Colour validator", () => {
 	});
 
 	describe("returns false on", () => {
-		test("invalid colour string value", () => {
+		test("invalid color string value", () => {
 			expect(validator("")).toEqual(false);
 			expect(validator("  #fff")).toEqual(false);
 			expect(validator("#02adf3s")).toEqual(false);
@@ -439,7 +440,8 @@ describe("LatLngTuple validator", () => {
 describe("StringMap validator", () => {
 	const validator = Validator.stringMap;
 
-	test("is true on non empty objects", () => {
+	test("is true on objects", () => {
+		expect(validator({})).toEqual(true);
 		expect(validator({ 1: 1 })).toEqual(true);
 		expect(validator({ a: 1 })).toEqual(true);
 		expect(validator({ 1: "aaa" })).toEqual(true);
@@ -449,10 +451,6 @@ describe("StringMap validator", () => {
 	});
 
 	describe("is false on", () => {
-		test("empty objects", () => {
-			expect(validator({})).toEqual(false);
-		});
-
 		test("null values", () => {
 			expect(validator(null)).toEqual(false);
 		});
