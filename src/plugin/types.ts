@@ -16,10 +16,12 @@ export type StringMap = Record<string, unknown>;
 /**
  * Shape stored in frontmatter as a list-of-objects under the marker property.
  * Coordinates are per-map. Icon and color are note-level properties, not per-marker.
+ * The `map` field can be a single string or an array of strings, allowing a marker
+ * to appear on multiple map views without duplicating the coordinates entry.
  */
 export type MarkerObject = {
 	coordinates: Coordinates;
-	map?: string;
+	map?: string | string[];
 };
 
 /**
@@ -28,7 +30,7 @@ export type MarkerObject = {
  */
 export interface MarkerEntry {
 	coordinates: Coordinates;
-	map?: string;
+	map?: string | string[];
 	icon?: IconName;
 	color: string;
 	name: string;
@@ -78,6 +80,19 @@ export interface PathEntry {
 }
 
 /**
+ * One switchable background in a base layer configuration.
+ * Each entry defines an image plus associated vector layers and tags.
+ */
+export interface BaseLayerConfig {
+	name: string;
+	image: string | Wiki;
+	overlays: string[];
+	geojson: string[];
+	rivers: string[];
+	tags: string[];
+}
+
+/**
  * Resolved view configuration driving how the map and its markers render.
  * Values are computed from Bases view options with defaults applied.
  */
@@ -90,6 +105,7 @@ export interface MapConfig {
 	overlays: string[];
 	geojson: string[];
 	rivers: string[];
+	baseLayers?: BaseLayerConfig[];
 	markerProperty: string;
 	markerIconProperty?: string;
 	markerColorProperty?: string;

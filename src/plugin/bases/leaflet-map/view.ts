@@ -21,6 +21,7 @@ export const LeafletMapViewRegistrationBuilder: ViewRegistrationBuilder = (
 interface EphemeralState {
 	center?: { lat: number; lng: number };
 	zoom?: number;
+	baseLayerIndex?: number;
 }
 
 class LeafletMapView extends BasesView {
@@ -51,7 +52,13 @@ class LeafletMapView extends BasesView {
 
 			// Apply pending ephemeral state after data is loaded
 			if (this.pendingState) {
-				const { center, zoom } = this.pendingState;
+				const { center, zoom, baseLayerIndex } = this.pendingState;
+
+				// Restore base layer first (before viewport, since tag filter affects fitToContent)
+				if (baseLayerIndex !== undefined) {
+					void this.mapManager.setActiveBaseLayer(baseLayerIndex);
+				}
+
 				if (center) {
 					this.mapManager.panTo(new LatLng(center.lat, center.lng));
 				}
@@ -92,6 +99,7 @@ class LeafletMapView extends BasesView {
 		return {
 			center: { lat: state.center.lat, lng: state.center.lng },
 			zoom: state.zoom,
+			baseLayerIndex: this.mapManager.getActiveBaseLayerIndex(),
 		};
 	}
 
@@ -116,6 +124,9 @@ class LeafletMapView extends BasesView {
 		}
 		if (typeof s.zoom === "number") {
 			pending.zoom = s.zoom;
+		}
+		if (typeof s.baseLayerIndex === "number") {
+			pending.baseLayerIndex = s.baseLayerIndex;
 		}
 
 		this.pendingState = pending;

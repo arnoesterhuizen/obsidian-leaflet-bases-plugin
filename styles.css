@@ -77,9 +77,157 @@ div.bases-leaflet-map-container div.bases-leaflet-map img.leaflet-image-layer {
 	text-overflow: ellipsis;
 }
 
-.leaflet-control-button {
-	background: var(--tab-container-background);
+/* ── Theme-aware Leaflet controls ─────────────────────────────────────
+   Override Leaflet's hardcoded white/dark colours so controls follow
+   Obsidian's dark/light theme.  Use Obsidian CSS variables from the
+   Icons foundation (--icon-size, --icon-color, --icon-s, etc.) and
+   --clickable-icon-radius for consistency with the rest of the app.
+   Scoped under .bases-leaflet-map to avoid leaking. */
+
+/* Shared button size — all control buttons use the same dimensions */
+.bases-leaflet-map {
+	--leaflet-btn-size: 30px;
+	--leaflet-btn-icon: var(--icon-s, 16px);
+	--leaflet-btn-radius: var(--clickable-icon-radius, 4px);
 }
+
+/* ── Bar container (zoom + toolbar) ────────────────────────────────── */
+.bases-leaflet-map .leaflet-bar {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: none;
+	border-radius: var(--leaflet-btn-radius);
+}
+
+/* ── Zoom <a> buttons ──────────────────────────────────────────────── */
+.bases-leaflet-map .leaflet-bar a {
+	width: var(--leaflet-btn-size);
+	height: var(--leaflet-btn-size);
+	line-height: var(--leaflet-btn-size);
+	background: var(--background-primary);
+	color: var(--icon-color, var(--text-normal));
+	border-bottom-color: var(--background-modifier-border);
+	font-size: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.bases-leaflet-map .leaflet-bar a svg {
+	width: var(--leaflet-btn-icon);
+	height: var(--leaflet-btn-icon);
+	stroke-width: var(--icon-s-stroke-width, 2px);
+}
+.bases-leaflet-map .leaflet-bar a:hover,
+.bases-leaflet-map .leaflet-bar a:focus {
+	background: var(--background-modifier-hover);
+	color: var(--icon-color-hover, var(--text-normal));
+}
+.bases-leaflet-map .leaflet-bar a.leaflet-disabled {
+	background: var(--background-primary);
+	color: var(--text-faint, var(--text-muted));
+	opacity: 0.5;
+}
+.bases-leaflet-map .leaflet-bar a:first-child {
+	border-top-left-radius: var(--leaflet-btn-radius);
+	border-top-right-radius: var(--leaflet-btn-radius);
+}
+.bases-leaflet-map .leaflet-bar a:last-child {
+	border-bottom-left-radius: var(--leaflet-btn-radius);
+	border-bottom-right-radius: var(--leaflet-btn-radius);
+}
+
+/* ── Toolbar <button> elements ─────────────────────────────────────── */
+.bases-leaflet-map .leaflet-control-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--leaflet-btn-size);
+	height: var(--leaflet-btn-size);
+	padding: 0;
+	margin: 0;
+	border: none;
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 0;
+	background: var(--background-primary);
+	color: var(--icon-color, var(--text-normal));
+	cursor: pointer;
+}
+.bases-leaflet-map .leaflet-control-button:first-child {
+	border-top-left-radius: var(--leaflet-btn-radius);
+	border-top-right-radius: var(--leaflet-btn-radius);
+}
+.bases-leaflet-map .leaflet-control-button:last-child {
+	border-bottom-left-radius: var(--leaflet-btn-radius);
+	border-bottom-right-radius: var(--leaflet-btn-radius);
+	border-bottom: none;
+}
+.bases-leaflet-map .leaflet-control-button:hover {
+	background: var(--background-modifier-hover);
+	color: var(--icon-color-hover, var(--text-normal));
+}
+.bases-leaflet-map .leaflet-control-button.selected {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+.bases-leaflet-map .leaflet-control-button.selected svg {
+	color: var(--text-on-accent);
+}
+
+/* Icon sizing — Obsidian getIcon() SVGs are 24×24; shrink to match */
+.bases-leaflet-map .leaflet-control-button svg {
+	width: var(--leaflet-btn-icon);
+	height: var(--leaflet-btn-icon);
+	stroke-width: var(--icon-s-stroke-width, 2px);
+}
+
+/* ── Layer switcher ────────────────────────────────────────────────── */
+.bases-leaflet-map .leaflet-control-layers {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: none;
+	border-radius: var(--leaflet-btn-radius);
+}
+.bases-leaflet-map .leaflet-control-layers-toggle {
+	width: var(--leaflet-btn-size);
+	height: var(--leaflet-btn-size);
+	background-image: none;
+	background-color: var(--background-primary);
+	border-radius: var(--leaflet-btn-radius);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--icon-color, var(--text-normal));
+}
+.bases-leaflet-map .leaflet-control-layers-toggle:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--icon-color-hover, var(--text-normal));
+}
+.bases-leaflet-map .leaflet-control-layers-toggle svg {
+	width: var(--leaflet-btn-icon);
+	height: var(--leaflet-btn-icon);
+	stroke-width: var(--icon-s-stroke-width, 2px);
+}
+.bases-leaflet-map .leaflet-control-layers-expanded {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 6px 10px 6px 6px;
+}
+.bases-leaflet-map .leaflet-control-layers label {
+	color: var(--text-normal);
+}
+.bases-leaflet-map .leaflet-control-layers-separator {
+	border-top-color: var(--background-modifier-border);
+}
+
+/* Layer toggle icon — injected via setIcon("layers") in mapManager.ts,
+   uses currentColor so it adapts to theme automatically. */
+
+/* ── Touch-device overrides ────────────────────────────────────────── */
+/* The .leaflet-touch class is removed from the container in JS
+   (mapManager.ts) so Leaflet's touch-specific CSS overrides never
+   apply. Touch interactions still work — only the CSS class is removed.
+   No CSS overrides needed here. */
 
 .leaflet-marker-icon .leaflet-marker-pin {
 	position: absolute;

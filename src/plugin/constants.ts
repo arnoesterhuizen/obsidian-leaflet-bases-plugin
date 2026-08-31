@@ -14,6 +14,7 @@ export const Constants = {
 			measure: "ruler",
 			pan: "mouse-pointer-2",
 			createNote: "file-plus",
+			fitToView: "maximize",
 		},
 		imageTypes: ["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"],
 		events: {
@@ -128,6 +129,7 @@ export const Constants = {
 			regionColor: "regionColor",
 			pathProperty: "pathProperty",
 			pathColor: "pathColor",
+			baseLayers: "baseLayers",
 		},
 		config: {
 			height: {

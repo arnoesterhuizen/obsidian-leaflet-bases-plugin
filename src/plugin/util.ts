@@ -25,6 +25,7 @@ export function fillMapConfigDefaults(raw: Partial<MapConfig> & { image: MapConf
 		geojson: raw.geojson ?? [],
 		rivers: raw.rivers ?? [],
 		overlays: raw.overlays ?? [],
+		baseLayers: raw.baseLayers,
 		markerProperty: raw.markerProperty ?? C.marker.defaultProperty,
 		markerIconProperty: raw.markerIconProperty,
 		markerColorProperty: raw.markerColorProperty,

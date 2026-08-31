@@ -1,5 +1,6 @@
 import { LatLng, LatLngBounds, LatLngExpression, LayerGroup, layerGroup, PathOptions, Polyline, polyline } from "leaflet";
 import { BasesEntry, ListValue, ObjectValue, Value } from "obsidian";
+import { readEntryTags, buildTagSet, matchesTagSet } from "@plugin/bases/leaflet-map/tagUtil";
 import type { MapConfig, PathObject } from "@plugin/types";
 import { Constants as C } from "@plugin/constants";
 import { SchemaValidator } from "@plugin/validation/schemaValidators";
@@ -111,8 +112,9 @@ function readStringProperty(entry: BasesEntry, property: string | undefined): st
  */
 export class PathManager {
 	private group: LayerGroup = layerGroup();
-	private paths: Polyline[] = [];
+	private paths: { line: Polyline; tags: string[] }[] = [];
 	private config: MapConfig | undefined;
+	private activeTagSet: Set<string> | null = null;
 
 	unload(): void {
 		this.clear();
@@ -121,7 +123,8 @@ export class PathManager {
 	getBounds(): LatLngBounds | null {
 		if (this.paths.length === 0) return null;
 		const bounds = new LatLngBounds([]);
-		for (const line of this.paths) {
+		for (const { line, tags } of this.paths) {
+			if (this.activeTagSet && !matchesTagSet(tags, this.activeTagSet)) continue;
 			bounds.extend(line.getBounds());
 		}
 		return bounds.isValid() ? bounds : null;
@@ -133,6 +136,20 @@ export class PathManager {
 
 	updateConfig(config: MapConfig): void {
 		this.config = config;
+	}
+
+	/**
+	 * Apply a tag filter to show/hide paths based on the active base layer's tags.
+	 * Pass null to clear the filter and show all paths.
+	 */
+	applyTagFilter(layerTags: string[] | null): void {
+		this.activeTagSet = layerTags ? buildTagSet(layerTags) : null;
+		this.group.clearLayers();
+		for (const { line, tags } of this.paths) {
+			if (!this.activeTagSet || matchesTagSet(tags, this.activeTagSet)) {
+				this.group.addLayer(line);
+			}
+		}
 	}
 
 	updatePaths(data: { data: BasesEntry[] }): void {
@@ -174,8 +191,11 @@ export class PathManager {
 				if (name) {
 					line.bindTooltip(name);
 				}
-				this.paths.push(line);
-				this.group.addLayer(line);
+				const tags = readEntryTags(entry);
+				this.paths.push({ line, tags });
+				if (!this.activeTagSet || matchesTagSet(tags, this.activeTagSet)) {
+					this.group.addLayer(line);
+				}
 			}
 		}
 	}

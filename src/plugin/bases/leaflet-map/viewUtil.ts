@@ -1,6 +1,6 @@
 import { App, BasesAllOptions, BasesEntry, BasesView, Notice } from "obsidian";
 import { Constants as C } from "@plugin/constants";
-import { MapConfig, StringMap, StyleRule } from "@plugin/types";
+import { BaseLayerConfig, MapConfig, StringMap, StyleRule } from "@plugin/types";
 import { clamp, parseBounds } from "@plugin/util";
 import { Validator } from "@plugin/validation/validators";
 
@@ -16,7 +16,14 @@ export class ViewUtil {
 	}
 
 	getMapConfig(): MapConfig | null {
-		const image = this.view.config.get(C.view.keys.image);
+		const baseLayers = this.parseBaseLayers();
+		console.debug("[leaflet-bases] getMapConfig: baseLayers =", baseLayers);
+
+		// When baseLayers is present, use the first layer's image; otherwise use top-level image
+		const image = baseLayers && baseLayers.length > 0
+			? baseLayers[0]!.image
+			: this.view.config.get(C.view.keys.image);
+		console.debug("[leaflet-bases] getMapConfig: image =", image, "valid =", Validator.source(image));
 		if (!Validator.source(image)) return null;
 
 		const minZoom = this.getNumericConfig(C.view.keys.minZoom, C.map.default.minZoom);
@@ -35,9 +42,10 @@ export class ViewUtil {
 		const bounds =
 			typeof rawBounds === "string" && Validator.bounds(rawBounds) ? rawBounds : undefined;
 
-		const geojson = this.getGeojsonPaths();
-		const rivers = this.getPathList(C.view.keys.rivers);
-		const overlays = this.getPathList(C.view.keys.overlays);
+		// When baseLayers is present, ignore top-level overlays/geojson/rivers
+		const geojson = baseLayers ? [] : this.getGeojsonPaths();
+		const rivers = baseLayers ? [] : this.getPathList(C.view.keys.rivers);
+		const overlays = baseLayers ? [] : this.getPathList(C.view.keys.overlays);
 
 		return {
 			image,
@@ -48,6 +56,7 @@ export class ViewUtil {
 			overlays,
 			geojson,
 			rivers,
+			baseLayers: baseLayers ?? undefined,
 			markerProperty: this.getStringConfig(C.view.keys.markerProperty) ?? C.marker.defaultProperty,
 			markerIconProperty: this.getStringConfig(C.view.keys.markerIcon) ?? C.marker.defaultIconProperty,
 			markerColorProperty: this.getStringConfig(C.view.keys.markerColor) ?? C.marker.defaultColorProperty,
@@ -103,6 +112,55 @@ export class ViewUtil {
 
 	private getGeojsonPaths(): string[] {
 		return this.getPathList(C.view.keys.geojson);
+	}
+
+	/**
+	 * Parse the `baseLayers` config key into validated BaseLayerConfig entries.
+	 * Returns null if baseLayers is absent or empty.
+	 */
+	private parseBaseLayers(): BaseLayerConfig[] | null {
+		const raw = this.view.config.get(C.view.keys.baseLayers);
+		console.debug("[leaflet-bases] parseBaseLayers: raw =", raw, "type =", typeof raw, "isArray =", Array.isArray(raw));
+		if (!Array.isArray(raw) || raw.length === 0) return null;
+
+		const layers: BaseLayerConfig[] = [];
+		for (const entry of raw) {
+			if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+
+			const rec = entry as Record<string, unknown>;
+
+			// Validate required fields
+			const name = rec.name;
+			if (typeof name !== "string" || name.length === 0) continue;
+
+			const image = rec.image;
+			if (!Validator.source(image)) continue;
+
+			const tags = rec.tags;
+			if (!Array.isArray(tags) || tags.length === 0) continue;
+			const validTags = tags.filter((t): t is string => typeof t === "string" && t.length > 0);
+			if (validTags.length === 0) continue;
+
+			// Optional array fields default to []
+			const overlays = this.parseStringArray(rec.overlays);
+			const geojson = this.parseStringArray(rec.geojson);
+			const rivers = this.parseStringArray(rec.rivers);
+
+			layers.push({ name, image, overlays, geojson, rivers, tags: validTags });
+		}
+
+		return layers.length > 0 ? layers : null;
+	}
+
+	/**
+	 * Parse an unknown value into a string array. Returns [] if the value is not
+	 * a valid array of strings.
+	 */
+	private parseStringArray(value: unknown): string[] {
+		if (!Array.isArray(value)) return [];
+		return value
+			.filter((item): item is string => typeof item === "string" && item.length > 0)
+			.map((item) => item.trim());
 	}
 
 	private getPathList(key: string): string[] {

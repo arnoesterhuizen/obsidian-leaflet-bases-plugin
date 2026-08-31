@@ -1,5 +1,6 @@
 import { LatLngBounds, LayerGroup } from "leaflet";
-import { App, BasesEntry, ListValue, ObjectValue, Value } from "obsidian";
+import { App, BasesEntry, ObjectValue, Value, ListValue } from "obsidian";
+import { readEntryTags, buildTagSet, matchesTagSet } from "@plugin/bases/leaflet-map/tagUtil";
 import { Map } from "@plugin/bases/leaflet-map/map/map";
 import { Constants as C } from "@plugin/constants";
 import { Frontmatter } from "@plugin/properties/frontmatter";
@@ -70,8 +71,22 @@ function objectValueToRecord(obj: ObjectValue): Record<string, unknown> {
 
 	const map = obj.get("map");
 	if (map && map.isTruthy()) {
-		const str = map.toString().trim();
-		if (str.length > 0) record.map = str;
+		// map can be a single string or a list of strings
+		if (map instanceof ListValue) {
+			const items: string[] = [];
+			for (let i = 0; i < map.length(); i++) {
+				const element = map.get(i);
+				if (element && element.isTruthy()) {
+					const str = element.toString().trim();
+					if (str.length > 0) items.push(str);
+				}
+			}
+			if (items.length === 1) record.map = items[0];
+			else if (items.length > 1) record.map = items;
+		} else {
+			const str = map.toString().trim();
+			if (str.length > 0) record.map = str;
+		}
 	}
 
 	return record;
@@ -133,10 +148,13 @@ function resolveColor(value: string | undefined): string {
 	return C.marker.defaultColor;
 }
 
+
+
 export class MarkerManager {
 	private config: MapConfig | undefined;
-	private markers: { item: Marker; entry: MarkerEntry }[] = [];
+	private markers: { item: Marker; entry: MarkerEntry; tags: string[] }[] = [];
 	private refreshHandler = () => this.refreshMarkerVisibility();
+	private activeTagSet: Set<string> | null = null;
 
 	constructor(
 		private app: App,
@@ -158,16 +176,27 @@ export class MarkerManager {
 	}
 
 	/**
+	 * Apply a tag filter to show/hide markers based on the active base layer's tags.
+	 * Pass null to clear the filter and show all markers.
+	 */
+	applyTagFilter(layerTags: string[] | null): void {
+		this.activeTagSet = layerTags ? buildTagSet(layerTags) : null;
+		this.refreshMarkerVisibility();
+	}
+
+	/**
 	 * Returns the bounding box of all current markers, or null if there are none.
+	 * When a tag filter is active, only matching markers are included.
 	 */
 	getMarkerBounds(): LatLngBounds | null {
 		if (this.markers.length === 0) return null;
 
 		const bounds = new LatLngBounds([]);
-		for (const { entry } of this.markers) {
+		for (const { entry, tags } of this.markers) {
+			if (this.activeTagSet && !matchesTagSet(tags, this.activeTagSet)) continue;
 			bounds.extend(parseCoordinates(entry.coordinates));
 		}
-		return bounds;
+		return bounds.isValid() ? bounds : null;
 	}
 
 	updateMarkers(data: { data: BasesEntry[] }): void {
@@ -193,10 +222,15 @@ export class MarkerManager {
 
 			// Filter by map name:
 			// - View has mapName: only show markers explicitly assigned to that map
+			//   (supports both single string and array of strings)
 			// - View has no mapName: only show markers with no map assignment
-			const matching = markerObjects.filter(
-				(obj) => mapName ? obj.map === mapName : obj.map === undefined,
-			);
+			const matching = markerObjects.filter((obj) => {
+				if (mapName) {
+					if (Array.isArray(obj.map)) return obj.map.includes(mapName);
+					return obj.map === mapName;
+				}
+				return obj.map === undefined;
+			});
 
 			if (markerObjects.length > 0 && matching.length !== markerObjects.length) {
 				console.debug(`[leaflet-bases] ${entry.file.basename}: ${markerObjects.length} markers, ${matching.length} matching mapName=${JSON.stringify(mapName)}`, markerObjects);
@@ -205,8 +239,11 @@ export class MarkerManager {
 			for (const obj of matching) {
 				const resolved = this.resolveMarkerEntry(obj, entry);
 				const markerItem = marker(this.app, this.map, resolved, this.frontmatter);
-				this.markers.push({ item: markerItem, entry: resolved });
-				this.addMarker(markerItem);
+				const tags = readEntryTags(entry);
+				this.markers.push({ item: markerItem, entry: resolved, tags });
+				if (!this.activeTagSet || matchesTagSet(tags, this.activeTagSet)) {
+					this.addMarker(markerItem);
+				}
 			}
 		}
 
@@ -306,9 +343,14 @@ export class MarkerManager {
 		const zoom = this.map.getZoom();
 		const bounds = this.map.getBounds();
 
+		// Filter markers by active tag filter
+		const visibleMarkers = this.activeTagSet
+			? this.markers.filter(({ tags }) => matchesTagSet(tags, this.activeTagSet!))
+			: this.markers;
+
 		// At high zoom or with few markers, show everything
-		if (this.markers.length <= 50 || zoom >= (this.config?.maxZoom ?? 10) - 1) {
-			for (const { item } of this.markers) {
+		if (visibleMarkers.length <= 50 || zoom >= (this.config?.maxZoom ?? 10) - 1) {
+			for (const { item } of visibleMarkers) {
 				this.addMarker(item);
 			}
 			return;
@@ -322,7 +364,7 @@ export class MarkerManager {
 		const rows = Math.ceil(mapSize.y / cellSize);
 		const occupied = new Set<string>();
 
-		for (const { item, entry } of this.markers) {
+		for (const { item, entry } of visibleMarkers) {
 			const coords = parseCoordinates(entry.coordinates);
 			const latLng = { lat: coords[0], lng: coords[1] };
 

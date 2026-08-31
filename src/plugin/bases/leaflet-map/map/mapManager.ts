@@ -1,5 +1,5 @@
-import { Control, CRS, ImageOverlay, imageOverlay, LatLng, LatLngBounds, LayerGroup, layerGroup } from "leaflet";
-import { BasesEntry } from "obsidian";
+import { Control, CRS, ImageOverlay, imageOverlay, LatLng, LatLngBounds, LayerGroup, layerGroup, TileLayer, tileLayer } from "leaflet";
+import { BasesEntry, setIcon } from "obsidian";
 import { ContextMenu } from "@plugin/bases/leaflet-map/contextMenu";
 import { ControlContainer } from "@plugin/bases/leaflet-map/control/container";
 import { GeoJsonManager } from "@plugin/bases/leaflet-map/geojson/geojsonManager";
@@ -15,7 +15,7 @@ import { Constants as C } from "@plugin/constants";
 import { BasesLeafletViewPlugin } from "@plugin/plugin";
 import { Frontmatter } from "@plugin/properties/frontmatter";
 import { StyleResolver } from "@plugin/styles/styleResolver";
-import type { MapConfig } from "@plugin/types";
+import type { BaseLayerConfig, MapConfig } from "@plugin/types";
 import { parseBounds, parseCoordinates } from "@plugin/util";
 
 export class MapManager {
@@ -23,10 +23,13 @@ export class MapManager {
 	private leafletMap: Map;
 	private config: MapConfig | undefined = undefined;
 	private lastEmbedded: boolean | undefined = undefined;
+	private initialized: boolean = false;
 
 	// Layers
 	private markerLayer: LayerGroup;
 	private imageOverlay: ImageOverlay | undefined;
+	private currentImage: MapConfig["image"] | undefined;
+	private currentBounds: string | undefined;
 
 	// Managers
 	private styleResolver: StyleResolver;
@@ -37,9 +40,15 @@ export class MapManager {
 	private geojsonManager: GeoJsonManager;
 	private riverManager: RiverManager;
 	private overlayManager: OverlayManager;
-	private controls: ControlContainer | undefined;
+	private controls: ControlContainer;
 	private layerControl: Control.Layers | undefined;
 	private contextMenu: ContextMenu;
+
+	// Base layer switching
+	private baseLayerControl: Control.Layers | undefined;
+	private baseLayerProxies: TileLayer[] = [];
+	private activeBaseLayerIndex: number = 0;
+	private baseLayerChangeHandler: ((e: { name: string }) => void) | undefined;
 
 	constructor(plugin: BasesLeafletViewPlugin, containerEl: HTMLElement, viewUtil: ViewUtil) {
 		this.mapEl = containerEl.createDiv("bases-leaflet-map");
@@ -66,19 +75,20 @@ export class MapManager {
 			keyboard: false,
 		});
 
-		if (
-			plugin.settingsManager.settings.enableMeasureTool ||
-			plugin.settingsManager.settings.enableDragTool ||
-			plugin.settingsManager.settings.enableCreateNoteTool
-		) {
-			this.controls = new ControlContainer(
-				plugin.app,
-				viewUtil,
-				plugin.settingsManager.settings,
-				frontmatter,
-			);
-			this.controls.addTo(this.leafletMap);
-		}
+		// Remove .leaflet-touch so Leaflet's touch-specific CSS overrides
+		// (larger buttons, 2px radius) don't conflict with our custom styles.
+		// Touch interactions (pinch-zoom, drag) still work — only the CSS class is removed.
+		this.leafletMap.getContainer().classList.remove("leaflet-touch");
+
+		this.controls = new ControlContainer(
+			plugin.app,
+			viewUtil,
+			plugin.settingsManager.settings,
+			frontmatter,
+			() => this.fitToContent(),
+		);
+		this.controls.addTo(this.leafletMap);
+		this.replaceZoomIcons();
 
 		this.contextMenu = new ContextMenu(plugin.app, viewUtil, this.leafletMap, frontmatter);
 		this.contextMenu.addHooks();
@@ -99,8 +109,9 @@ export class MapManager {
 		this.geojsonManager.unload();
 		this.riverManager.unload();
 		this.overlayManager.unload();
+		this.removeBaseLayerControl();
 		this.layerControl?.remove();
-		this.controls?.onRemove(this.leafletMap);
+		this.controls.onRemove(this.leafletMap);
 		this.contextMenu.removeHooks();
 		this.leafletMap.clearAllEventListeners();
 		this.leafletMap.remove();
@@ -128,29 +139,42 @@ export class MapManager {
 
 		// When the image changes, reset zoom constraints first so the new fitBounds
 		// isn't clamped by the previous view's min/max zoom
-		const imageChanging = this.config?.image !== config.image;
-		if (imageChanging) {
+		const activeLayer = this.getActiveBaseLayer(config);
+		const effectiveImage = activeLayer?.image ?? config.image;
+		const imageChanging = this.currentImage !== effectiveImage;
+		if (imageChanging && !this.initialized) {
 			this.leafletMap.setMinZoom(-100);
 			this.leafletMap.setMaxZoom(100);
 			this.leafletMap.setMaxBounds([[-1e5, -1e5], [1e5, 1e5]]);
 		}
 
-		const imageChanged = await this.updateImageOverlay(config);
-		await this.updateGeoJsonLayers(config);
-		await this.riverManager.updateLayers(config);
+		// Build a temporary config with the active layer's image/overlays/geojson/rivers
+		const effectiveConfig = this.buildEffectiveConfig(config);
+
+		const imageChanged = await this.updateImageOverlay(effectiveConfig);
+		await this.updateGeoJsonLayers(effectiveConfig);
+		await this.riverManager.updateLayers(effectiveConfig);
 		await this.overlayManager.updateLayers(
-			config,
+			effectiveConfig,
 			this.imageOverlay ? this.imageOverlay.getBounds() : null,
 		);
 		this.updateZoom(config, imageChanged);
 		this.updateHeight(config, embedded);
 
-		this.controls?.updateSettings(config);
+		// Apply tag filter after the map has a valid viewport (image + zoom are set)
+		const layerTags = activeLayer?.tags ?? null;
+		this.markerManager.applyTagFilter(layerTags);
+		this.regionManager.applyTagFilter(layerTags);
+		this.pathManager.applyTagFilter(layerTags);
+
+		this.controls.updateSettings(config);
+		this.updateBaseLayerControl(config);
 
 		this.leafletMap.invalidateSize();
 
 		this.config = config;
 		this.lastEmbedded = embedded;
+		this.initialized = true;
 	}
 
 	invalidateSize(): void {
@@ -178,9 +202,34 @@ export class MapManager {
 		}
 	}
 
+	/** Returns the currently active base layer index (0 if no base layers). */
+	getActiveBaseLayerIndex(): number {
+		return this.activeBaseLayerIndex;
+	}
+
+	/**
+	 * Switch to a specific base layer by index.
+	 * Used to restore ephemeral state.
+	 */
+	async setActiveBaseLayer(index: number): Promise<void> {
+		if (!this.config?.baseLayers || index < 0 || index >= this.config.baseLayers.length) return;
+		if (index === this.activeBaseLayerIndex) return;
+
+		this.activeBaseLayerIndex = index;
+
+		// Update the radio button in the control
+		if (this.baseLayerProxies[index]) {
+			this.baseLayerProxies[index]!.addTo(this.leafletMap);
+		}
+
+		await this.switchToBaseLayer(index);
+	}
+
 	/**
 	 * Fit the map view to encompass all current markers, regions, and paths with some padding.
-	 * Called when no explicit center/zoom is configured.
+	 * Called when no explicit center/zoom is configured, or when the user clicks "Fit to view".
+	 *
+	 * When base layers are active, only content visible on the current layer is considered.
 	 */
 	fitToContent(): void {
 		const bounds = new LatLngBounds([]);
@@ -203,10 +252,148 @@ export class MapManager {
 		});
 	}
 
+	// --- Base layer management ---
+
+	/**
+	 * Get the currently active base layer config, or undefined if no base layers.
+	 */
+	private getActiveBaseLayer(config: MapConfig): BaseLayerConfig | undefined {
+		if (!config.baseLayers || config.baseLayers.length === 0) return undefined;
+
+		// Clamp index to valid range
+		if (this.activeBaseLayerIndex >= config.baseLayers.length) {
+			this.activeBaseLayerIndex = 0;
+		}
+
+		return config.baseLayers[this.activeBaseLayerIndex];
+	}
+
+	/**
+	 * Build an effective MapConfig with image/overlays/geojson/rivers from the active base layer.
+	 * If no base layers, returns the config as-is.
+	 */
+	private buildEffectiveConfig(config: MapConfig): MapConfig {
+		const activeLayer = this.getActiveBaseLayer(config);
+		if (!activeLayer) return config;
+
+		return {
+			...config,
+			image: activeLayer.image,
+			overlays: activeLayer.overlays,
+			geojson: activeLayer.geojson,
+			rivers: activeLayer.rivers,
+		};
+	}
+
+	/**
+	 * Create or update the base layer switcher control.
+	 * Only renders when there are 2+ base layers.
+	 */
+	private updateBaseLayerControl(config: MapConfig): void {
+		const layers = config.baseLayers;
+
+		if (!layers || layers.length <= 1) {
+			this.removeBaseLayerControl();
+			return;
+		}
+
+		// Check if the base layers config actually changed
+		const prevLayers = this.config?.baseLayers;
+		if (prevLayers && prevLayers.length === layers.length &&
+			prevLayers.every((l, i) => l.name === layers[i]!.name)) {
+			return; // No change
+		}
+
+		this.removeBaseLayerControl();
+
+		// Create lightweight proxy layers for L.Control.Layers radio buttons
+		const baseLayers: Record<string, TileLayer> = {};
+		this.baseLayerProxies = [];
+
+		for (let i = 0; i < layers.length; i++) {
+			const proxy = tileLayer("", { opacity: 0 });
+			this.baseLayerProxies.push(proxy);
+			baseLayers[layers[i]!.name] = proxy;
+
+			// Add the active layer's proxy to the map so it shows as selected
+			if (i === this.activeBaseLayerIndex) {
+				proxy.addTo(this.leafletMap);
+			}
+		}
+
+		this.baseLayerControl = new Control.Layers(baseLayers, undefined, {
+			collapsed: true,
+			position: "topright",
+		});
+		this.baseLayerControl.addTo(this.leafletMap);
+		this.replaceLayerToggleIcon(this.baseLayerControl, "map");
+
+		// Listen for layer switch events
+		this.baseLayerChangeHandler = (e: { name: string }) => {
+			const newIndex = layers.findIndex((l) => l.name === e.name);
+			if (newIndex >= 0 && newIndex !== this.activeBaseLayerIndex) {
+				this.activeBaseLayerIndex = newIndex;
+				void this.switchToBaseLayer(newIndex);
+			}
+		};
+		this.leafletMap.on("baselayerchange", this.baseLayerChangeHandler as (e: unknown) => void);
+	}
+
+	/**
+	 * Remove the base layer switcher control and clean up proxy layers.
+	 */
+	private removeBaseLayerControl(): void {
+		if (this.baseLayerChangeHandler) {
+			this.leafletMap.off("baselayerchange", this.baseLayerChangeHandler as (e: unknown) => void);
+			this.baseLayerChangeHandler = undefined;
+		}
+		for (const proxy of this.baseLayerProxies) {
+			if (this.leafletMap.hasLayer(proxy)) {
+				this.leafletMap.removeLayer(proxy);
+			}
+		}
+		this.baseLayerProxies = [];
+		this.baseLayerControl?.remove();
+		this.baseLayerControl = undefined;
+	}
+
+	/**
+	 * Switch to a different base layer: swap image, overlays, geojson, rivers,
+	 * and apply tag filter. Does NOT change viewport.
+	 */
+	private async switchToBaseLayer(index: number): Promise<void> {
+		if (!this.config?.baseLayers) return;
+
+		const layer = this.config.baseLayers[index];
+		if (!layer) return;
+
+		// Build a config override with the new layer's assets
+		const effectiveConfig: MapConfig = {
+			...this.config,
+			image: layer.image,
+			overlays: layer.overlays,
+			geojson: layer.geojson,
+			rivers: layer.rivers,
+		};
+
+		await this.updateImageOverlay(effectiveConfig);
+		await this.updateGeoJsonLayers(effectiveConfig);
+		await this.riverManager.updateLayers(effectiveConfig);
+		await this.overlayManager.updateLayers(
+			effectiveConfig,
+			this.imageOverlay ? this.imageOverlay.getBounds() : null,
+		);
+
+		// Apply tag filter for the new layer
+		this.markerManager.applyTagFilter(layer.tags);
+		this.regionManager.applyTagFilter(layer.tags);
+		this.pathManager.applyTagFilter(layer.tags);
+	}
+
 	// --- Private ---
 
 	private async updateImageOverlay(config: MapConfig): Promise<boolean> {
-		if (this.config?.image === config.image && this.config?.bounds === config.bounds) return false;
+		if (this.currentImage === config.image && this.currentBounds === config.bounds) return false;
 
 		const imageData = await this.imageLoader.getImageData(config.image);
 		if (!imageData) return false;
@@ -219,15 +406,22 @@ export class MapManager {
 		this.imageOverlay = imageOverlay(imageData.url, bounds);
 
 		this.leafletMap.addLayer(this.imageOverlay);
+		this.currentImage = config.image;
+		this.currentBounds = config.bounds;
 
-		// Fit the image bounds first (zoom constraints are already cleared by updateSettings)
-		this.leafletMap.fitBounds(bounds, { animate: false });
+		if (!this.initialized) {
+			// First load: fit to image bounds and lock pan area
+			this.leafletMap.fitBounds(bounds, { animate: false });
+			this.leafletMap.setMaxBounds(bounds);
 
-		// Then lock the pan to the image area
-		this.leafletMap.setMaxBounds(bounds);
-
-		if (config.center) {
-			this.leafletMap.panTo(parseCoordinates(config.center), { animate: false });
+			if (config.center) {
+				this.leafletMap.panTo(parseCoordinates(config.center), { animate: false });
+			}
+		} else {
+			// Subsequent image changes (e.g. base layer switch): replace the image
+			// but preserve the current viewport. Only update maxBounds so panning
+			// stays constrained to the new image area.
+			this.leafletMap.setMaxBounds(bounds);
 		}
 
 		return true;
@@ -259,6 +453,14 @@ export class MapManager {
 				position: "topright",
 			});
 			this.layerControl.addTo(this.leafletMap);
+			this.replaceLayerToggleIcon(this.layerControl, "layers");
+
+			// Re-add the base layer control so it stays below the geojson control
+			if (this.baseLayerControl) {
+				this.baseLayerControl.remove();
+				this.baseLayerControl.addTo(this.leafletMap);
+				this.replaceLayerToggleIcon(this.baseLayerControl, "map");
+			}
 		}
 	}
 
@@ -266,15 +468,17 @@ export class MapManager {
 		this.leafletMap.setMinZoom(config.minZoom);
 		this.leafletMap.setMaxZoom(config.maxZoom);
 
-		// Always reset zoom when the map image changes (switching between views)
-		// or when the zoom config itself was modified
-		if (
-			imageChanged ||
+		// Reset zoom on first load when the image is set, or when zoom config changes.
+		// After initialization, image changes (base layer switches) preserve the
+		// current viewport — only zoom config changes trigger a reset.
+		const shouldResetZoom =
+			!this.initialized && imageChanged ||
 			!this.config ||
 			this.config.defaultZoom !== config.defaultZoom ||
 			this.config.minZoom !== config.minZoom ||
-			this.config.maxZoom !== config.maxZoom
-		) {
+			this.config.maxZoom !== config.maxZoom;
+
+		if (shouldResetZoom) {
 			this.leafletMap.setZoom(config.defaultZoom, { animate: false });
 		}
 
@@ -293,6 +497,36 @@ export class MapManager {
 			this.mapEl.setCssStyles({ height: `${config.height.toFixed(0)}px` });
 		} else {
 			this.mapEl.setCssStyles({ height: "" });
+		}
+	}
+
+	/**
+	 * Replace a Leaflet Control.Layers toggle's background-image icon with an
+	 * Obsidian Lucide SVG icon so it uses `currentColor` and respects theming.
+	 */
+	private replaceLayerToggleIcon(control: Control.Layers, iconName: string): void {
+		const container = control.getContainer();
+		if (!container) return;
+		const toggle = container.querySelector<HTMLElement>(".leaflet-control-layers-toggle");
+		if (!toggle) return;
+		toggle.style.backgroundImage = "none";
+		setIcon(toggle, iconName);
+	}
+
+	/**
+	 * Replace the default Leaflet zoom control's "+" and "-" text with
+	 * Lucide SVG icons for visual consistency with the rest of the toolbar.
+	 */
+	private replaceZoomIcons(): void {
+		const zoomIn = this.mapEl.querySelector<HTMLElement>(".leaflet-control-zoom-in");
+		const zoomOut = this.mapEl.querySelector<HTMLElement>(".leaflet-control-zoom-out");
+		if (zoomIn) {
+			zoomIn.textContent = "";
+			setIcon(zoomIn, "plus");
+		}
+		if (zoomOut) {
+			zoomOut.textContent = "";
+			setIcon(zoomOut, "minus");
 		}
 	}
 
@@ -325,7 +559,8 @@ export class MapManager {
 			JSON.stringify(prev.geojson) === JSON.stringify(next.geojson) &&
 			JSON.stringify(prev.rivers) === JSON.stringify(next.rivers) &&
 			JSON.stringify(prev.overlays) === JSON.stringify(next.overlays) &&
-			JSON.stringify(prev.styleOverrides) === JSON.stringify(next.styleOverrides)
+			JSON.stringify(prev.styleOverrides) === JSON.stringify(next.styleOverrides) &&
+			JSON.stringify(prev.baseLayers) === JSON.stringify(next.baseLayers)
 		);
 	}
 }

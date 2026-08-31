@@ -1,5 +1,6 @@
 import { LatLng, LatLngBounds, LatLngExpression, LayerGroup, layerGroup, PathOptions, Polygon, polygon } from "leaflet";
 import { BasesEntry, ListValue, ObjectValue, Value } from "obsidian";
+import { readEntryTags, buildTagSet, matchesTagSet } from "@plugin/bases/leaflet-map/tagUtil";
 import type { MapConfig, RegionObject } from "@plugin/types";
 import { Constants as C } from "@plugin/constants";
 import { SchemaValidator } from "@plugin/validation/schemaValidators";
@@ -111,8 +112,9 @@ function readStringProperty(entry: BasesEntry, property: string | undefined): st
  */
 export class RegionManager {
 	private group: LayerGroup = layerGroup();
-	private regions: Polygon[] = [];
+	private regions: { poly: Polygon; tags: string[] }[] = [];
 	private config: MapConfig | undefined;
+	private activeTagSet: Set<string> | null = null;
 
 	unload(): void {
 		this.clear();
@@ -121,7 +123,8 @@ export class RegionManager {
 	getBounds(): LatLngBounds | null {
 		if (this.regions.length === 0) return null;
 		const bounds = new LatLngBounds([]);
-		for (const poly of this.regions) {
+		for (const { poly, tags } of this.regions) {
+			if (this.activeTagSet && !matchesTagSet(tags, this.activeTagSet)) continue;
 			bounds.extend(poly.getBounds());
 		}
 		return bounds.isValid() ? bounds : null;
@@ -133,6 +136,20 @@ export class RegionManager {
 
 	updateConfig(config: MapConfig): void {
 		this.config = config;
+	}
+
+	/**
+	 * Apply a tag filter to show/hide regions based on the active base layer's tags.
+	 * Pass null to clear the filter and show all regions.
+	 */
+	applyTagFilter(layerTags: string[] | null): void {
+		this.activeTagSet = layerTags ? buildTagSet(layerTags) : null;
+		this.group.clearLayers();
+		for (const { poly, tags } of this.regions) {
+			if (!this.activeTagSet || matchesTagSet(tags, this.activeTagSet)) {
+				this.group.addLayer(poly);
+			}
+		}
 	}
 
 	updateRegions(data: { data: BasesEntry[] }): void {
@@ -176,8 +193,11 @@ export class RegionManager {
 				if (name) {
 					poly.bindTooltip(name);
 				}
-				this.regions.push(poly);
-				this.group.addLayer(poly);
+				const tags = readEntryTags(entry);
+				this.regions.push({ poly, tags });
+				if (!this.activeTagSet || matchesTagSet(tags, this.activeTagSet)) {
+					this.group.addLayer(poly);
+				}
 			}
 		}
 	}
