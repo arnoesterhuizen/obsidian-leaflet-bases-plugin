@@ -49,11 +49,22 @@ export class MarkerModal<T extends MarkerObject> extends Modal {
 	private addMapSetting(): void {
 		new Setting(this.contentEl)
 			.setName("Map")
-			.setDesc("Optional. Name of the map this marker is specific to. Useful if you want to add this note as a marker to multiple different maps.")
+			.setDesc("Optional. Name of the map this marker is specific to. Comma-separate multiple names to show this marker on several maps.")
 			.addText((textField) => {
+				const displayValue = Array.isArray(this.value.map)
+					? this.value.map.join(", ")
+					: (this.value.map ?? "");
 				textField
-					.setValue(this.value.map ?? "")
-					.onChange((value) => (this.value.map = value !== "" ? value : undefined));
+					.setValue(displayValue)
+					.onChange((value) => {
+						if (value === "") {
+							this.value.map = undefined;
+						} else if (value.includes(",")) {
+							this.value.map = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+						} else {
+							this.value.map = value;
+						}
+					});
 			});
 	}
 
@@ -91,7 +102,11 @@ export class MarkerModal<T extends MarkerObject> extends Modal {
 			.addButton((button) => {
 				button
 					.setButtonText("Open map")
-					.onClick(() => void openMatchingMap(this.app, this.value.map));
+					.onClick(() => {
+						const mapValue = this.value.map;
+						const firstMap = Array.isArray(mapValue) ? mapValue[0] : mapValue;
+						void openMatchingMap(this.app, firstMap);
+					});
 			});
 	}
 

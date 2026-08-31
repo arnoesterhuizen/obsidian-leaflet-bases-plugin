@@ -485,3 +485,61 @@ describe("StringMap validator", () => {
 		});
 	});
 });
+
+describe("StringOrStringArray validator", () => {
+	const validator = Validator.stringOrStringArray;
+
+	describe("returns true on", () => {
+		test("string value", () => {
+			expect(validator("")).toEqual(true);
+			expect(validator("hello")).toEqual(true);
+			expect(validator("atlas-toril")).toEqual(true);
+		});
+
+		test("non-empty array of strings", () => {
+			expect(validator(["atlas-toril"])).toEqual(true);
+			expect(validator(["atlas-toril", "atlas-underdark"])).toEqual(true);
+			expect(validator(["a", "b", "c"])).toEqual(true);
+		});
+	});
+
+	describe("returns false on", () => {
+		test("empty array", () => {
+			expect(validator([])).toEqual(false);
+		});
+
+		test("array with non-string elements", () => {
+			expect(validator([1, 2])).toEqual(false);
+			expect(validator([true, false])).toEqual(false);
+			expect(validator(["a", 1])).toEqual(false);
+		});
+
+		test("undefined value", () => {
+			expect(validator(undefined)).toEqual(false);
+		});
+
+		test("null value", () => {
+			expect(validator(null)).toEqual(false);
+		});
+
+		test("object value", () => {
+			expect(validator({})).toEqual(false);
+			expect(validator({ 1: "aaa" })).toEqual(false);
+		});
+
+		test("number value", () => {
+			expect(validator(0)).toEqual(false);
+			expect(validator(1)).toEqual(false);
+		});
+
+		test("boolean value", () => {
+			expect(validator(true)).toEqual(false);
+			expect(validator(false)).toEqual(false);
+		});
+
+		test("function value", () => {
+			expect(validator(() => {})).toEqual(false);
+			expect(validator((a: number) => a + 1)).toEqual(false);
+		});
+	});
+});

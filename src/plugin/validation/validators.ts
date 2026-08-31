@@ -3,7 +3,7 @@ import { IconName } from "obsidian";
 import { Constants as C } from "@plugin/constants";
 import { Coordinates, Hex, StringMap, Url, ValidatorFunction, Wiki } from "@plugin/types";
 
-type ValidatedProperties = string | Wiki | number | boolean | undefined | LatLngTuple | StringMap;
+type ValidatedProperties = string | string[] | Wiki | number | boolean | undefined | LatLngTuple | StringMap;
 
 function stringValidator(value: unknown): value is string {
 	return typeof value === "string";
@@ -56,6 +56,13 @@ function latLngTupleValidator(value: unknown): value is LatLngTuple {
 	return !!value && Array.isArray(value) && value.length === 2 && value.every(Validator.number);
 }
 
+function stringOrStringArrayValidator(value: unknown): value is string | string[] {
+	if (typeof value === "string") return true;
+	if (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string"))
+		return true;
+	return false;
+}
+
 function stringMapValidator(value: unknown): value is StringMap {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
 	return true;
@@ -63,6 +70,7 @@ function stringMapValidator(value: unknown): value is StringMap {
 
 export const Validator = {
 	string: stringValidator,
+	stringOrStringArray: stringOrStringArrayValidator,
 	source: sourcevalidator,
 	number: numberValidator,
 	positiveNumber: positiveNumberValidator,

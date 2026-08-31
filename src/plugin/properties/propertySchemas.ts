@@ -3,7 +3,7 @@ import { Validator } from "@plugin/validation/validators";
 
 export const markerSchema: Schema<keyof MarkerObject> = {
 	coordinates: { validator: Validator.coordinates, required: true },
-	map: { validator: Validator.string },
+	map: { validator: Validator.stringOrStringArray },
 };
 
 export const regionSchema: Schema<keyof RegionObject> = {
