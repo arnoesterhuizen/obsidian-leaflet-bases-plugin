@@ -1,7 +1,7 @@
 import { App, ValueComponent } from "obsidian";
 import { Constants as C } from "@plugin/constants";
 import { MarkerModalMode, MarkerObject } from "@plugin/types";
-import { getIconWithDefault } from "@plugin/util";
+import { formatMarkerValueLabel, getIconWithDefault } from "@plugin/util";
 import { MarkerModal } from "./markerModal";
 
 export class MarkerValueComponent extends ValueComponent<MarkerObject> {
@@ -85,7 +85,7 @@ export class MarkerValueComponent extends ValueComponent<MarkerObject> {
 
 	private updateElements() {
 		this.iconEl.replaceChildren(getIconWithDefault(undefined));
-		this.textEl.textContent = `${this.value.map ? `${this.value.map}: ` : ""}${this.value.coordinates}`;
+		this.textEl.textContent = formatMarkerValueLabel(this.value);
 	}
 
 	private createCloseButton(closeEl: HTMLDivElement): void {

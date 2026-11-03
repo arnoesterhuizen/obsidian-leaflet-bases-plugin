@@ -1,11 +1,51 @@
 import { LatLng, LatLngLiteral, LatLngTuple } from "leaflet";
 import { getIcon } from "obsidian";
 import { Constants as C } from "@plugin/constants";
-import { Coordinates, MapConfig } from "@plugin/types";
+import { Coordinates, MapConfig, MarkerObject } from "@plugin/types";
 import { Validator } from "./validation/validators";
 
 export function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Builds the label shown on a marker property tag. A marker's `map` field may be
+ * a single map name or an array of names (when the marker belongs to several
+ * maps); multiple names are joined with ", " so none is lost. When no map is
+ * set, only the coordinates are shown.
+ */
+export function formatMarkerValueLabel(marker: MarkerObject): string {
+	const maps = Array.isArray(marker.map) ? marker.map : marker.map ? [marker.map] : [];
+	const prefix = maps.length > 0 ? `${maps.join(", ")}: ` : "";
+	return `${prefix}${marker.coordinates}`;
+}
+
+/** Inputs for the auto-fit viewport decision. */
+export interface FitToContentState {
+	/** True only on the very first data load for this view/map instance. */
+	firstLoad: boolean;
+	/** True when ephemeral state (history navigation) is queued for restore. */
+	hasPendingState: boolean;
+	/** True when the .base config has an explicit center point. */
+	hasConfiguredCenter: boolean;
+	/** True when the .base config has an explicit default zoom. */
+	hasConfiguredZoom: boolean;
+}
+
+/**
+ * Decide whether onDataUpdated should auto-fit the map to all content.
+ *
+ * The Leaflet map lives for the whole view and is never torn down between data
+ * refreshes, so it already holds the user's live viewport. We therefore auto-fit
+ * ONLY on the first load, and only when there is no explicit viewport to honour
+ * (no configured center/zoom and no pending ephemeral state). Every subsequent
+ * refresh — tab switch, popup close, tag edit — preserves the live viewport.
+ * The deliberate reset path is the "Fit to view" control.
+ */
+export function shouldFitToContent(state: FitToContentState): boolean {
+	if (!state.firstLoad) return false;
+	if (state.hasPendingState) return false;
+	return !state.hasConfiguredCenter && !state.hasConfiguredZoom;
 }
 
 /**

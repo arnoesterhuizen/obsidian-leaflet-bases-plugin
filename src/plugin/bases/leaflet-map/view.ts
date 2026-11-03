@@ -4,6 +4,7 @@ import { MapManager } from "@plugin/bases/leaflet-map/map/mapManager";
 import { Constants as C } from "@plugin/constants";
 import { BasesLeafletViewPlugin } from "@plugin/plugin";
 import { ViewRegistrationBuilder } from "@plugin/types";
+import { shouldFitToContent } from "@plugin/util";
 import { ViewUtil } from "./viewUtil";
 
 export const LeafletMapViewRegistrationBuilder: ViewRegistrationBuilder = (
@@ -30,6 +31,13 @@ class LeafletMapView extends BasesView {
 	private mapManager: MapManager;
 	private scrollEl: HTMLElement;
 	private pendingState: EphemeralState | null = null;
+	/**
+	 * True until the first data load has been applied. The Leaflet map lives for
+	 * the whole view, so after the first load it already holds the user's live
+	 * viewport; subsequent refreshes (tab switch, popup close, tag edit) must not
+	 * re-fit and discard it.
+	 */
+	private firstLoad: boolean = true;
 
 	constructor(controller: QueryController, parentEl: HTMLElement, plugin: BasesLeafletViewPlugin) {
 		super(controller);
@@ -50,6 +58,13 @@ class LeafletMapView extends BasesView {
 		void this.mapManager.updateSettings(config, embedded).then(() => {
 			this.mapManager.updateData(this.data);
 
+			const fit = shouldFitToContent({
+				firstLoad: this.firstLoad,
+				hasPendingState: this.pendingState != null,
+				hasConfiguredCenter: config.center != null,
+				hasConfiguredZoom: this.hasConfiguredZoom(),
+			});
+
 			// Apply pending ephemeral state after data is loaded
 			if (this.pendingState) {
 				const { center, zoom, baseLayerIndex } = this.pendingState;
@@ -66,11 +81,15 @@ class LeafletMapView extends BasesView {
 					this.mapManager.setZoom(zoom);
 				}
 				this.pendingState = null;
-			} else if (!config.center && !this.hasConfiguredZoom()) {
-				// No explicit center or zoom configured, and no ephemeral state to restore:
-				// fit the view to encompass all markers
+			} else if (fit) {
+				// First load with no explicit center/zoom and no ephemeral state to
+				// restore: fit the view to encompass all markers. Subsequent refreshes
+				// preserve the live viewport (the map is never torn down); the "Fit to
+				// view" control is the deliberate reset.
 				this.mapManager.fitToContent();
 			}
+
+			this.firstLoad = false;
 		});
 	}
 

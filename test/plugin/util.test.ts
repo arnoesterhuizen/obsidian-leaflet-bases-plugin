@@ -1,7 +1,14 @@
 import { LatLngLiteral } from "leaflet";
 import { describe, expect, test } from "vitest";
 import { Coordinates } from "@plugin/types";
-import { clamp, distance, fillMapConfigDefaults, isNotNull, parseCoordinates } from "@plugin/util";
+import {
+	clamp,
+	distance,
+	fillMapConfigDefaults,
+	formatMarkerValueLabel,
+	isNotNull,
+	parseCoordinates,
+} from "@plugin/util";
 
 describe("Clamp function", () => {
 	const minimum = 2;
@@ -193,5 +200,25 @@ describe("Is not null type guard", () => {
 
 	test("is false on null values", () => {
 		expect(isNotNull(null)).toEqual(false);
+	});
+});
+
+describe("Format marker value label function", () => {
+	const coordinates = "1, 2" as Coordinates;
+
+	test("shows only coordinates when no map is set", () => {
+		expect(formatMarkerValueLabel({ coordinates })).toEqual("1, 2");
+	});
+
+	test("prefixes a single map name", () => {
+		expect(formatMarkerValueLabel({ coordinates, map: "a" })).toEqual("a: 1, 2");
+	});
+
+	test("joins multiple map names with a comma and space", () => {
+		expect(formatMarkerValueLabel({ coordinates, map: ["a", "b"] })).toEqual("a, b: 1, 2");
+	});
+
+	test("treats an empty map array as no map", () => {
+		expect(formatMarkerValueLabel({ coordinates, map: [] })).toEqual("1, 2");
 	});
 });
