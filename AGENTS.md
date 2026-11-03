@@ -33,6 +33,34 @@ npm run dev
 npm run build
 ```
 
+## Git command conventions
+
+These rules apply to every agent and workflow step that runs git in this repo.
+A fresh workflow/sub-agent session does NOT inherit the human's editor/global
+settings, so the conventions must be followed from here.
+
+- **Never redirect git's working directory with a flag.** Do NOT use `git -C
+  <path>`, `git --git-dir=...`, or `git --work-tree=...` to choose where a
+  command runs. Set the working directory through your shell tool's
+  working-directory parameter (e.g. the `cwd` field) and run plain git
+  (`git status`, `git merge --ff-only <branch>`). The same applies to other
+  tools' directory-redirect flags (`make -C`, `npm --prefix`, `pytest <dir>`):
+  prefer the tool's working-directory parameter. `-C` and friends hide where a
+  command actually runs and defeat per-command review; the working-directory
+  parameter is the one place that stays visible and reviewable.
+- **Run one git command per shell invocation.** Do not chain with `&&` or `;`.
+- **Worktree cleanup runs from the repo root.** When removing a worktree
+  (`git worktree remove`, `git worktree prune`, `git branch -d`), set the
+  working directory to the REPO ROOT and address the worktree by relative path —
+  never leave a session's working directory inside a worktree you are about to
+  delete (on Windows that locks the folder). Express "from the repo root" via
+  the working-directory parameter, not `-C`.
+- **Do not modify git config**, do not `push --force`/`reset --hard`/`clean -f`,
+  and do not skip hooks (`--no-verify`) unless explicitly asked.
+- **Commit style:** plain capitalized imperative subjects (e.g. `Add ...`,
+  `Fix ...`, `Remove ...`). Do NOT use gitmoji, emoji, or Conventional-Commits
+  type prefixes — those belong to other repos in this workspace, not this one.
+
 ## Linting
 
 - To use eslint install eslint from terminal: `npm install -g eslint`
