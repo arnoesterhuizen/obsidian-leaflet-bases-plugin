@@ -93,47 +93,115 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 		container.empty();
 		const rules = this.manager.settings.styleRules;
 
-		new SettingGroup(container).setHeading("Feature styles");
+		// Wrap the whole section in a SettingGroup so the heading and every row
+		// live inside a single `div.setting-group`, matching the other sections
+		// (Map tools, GeoJSON) and Obsidian's native settings layout. Every row
+		// below is added via `group.addSetting(...)` so it nests in the group
+		// rather than being a loose sibling in a bare div.
+		const group = new SettingGroup(container).setHeading("Feature styles");
 
-		new Setting(container)
-			.setName("Style resolution cascade")
-			.setDesc(
-				"Plugin settings (group) < plugin settings (group+class) < base file overrides < note frontmatter.",
-			);
+		group.addSetting((setting) => {
+			setting
+				.setName("Style resolution cascade")
+				.setDesc(
+					"Plugin settings (group) < plugin settings (group+class) < base file overrides < note frontmatter.",
+				);
+		});
 
-		for (let i = 0; i < rules.length; i++) {
-			const rule = rules[i]!;
-			const label = rule.featureClass
-				? `${rule.group}.${rule.featureClass}`
-				: rule.group;
+		// Render rules grouped by `group` and sorted so the cascade reads top to
+		// bottom: each group's baseline (group-only) rule first, then its
+		// class-specific rules indented beneath it. The underlying settings array
+		// keeps its stored order — we only sort a view over it, carrying each
+		// rule's original index so Edit/Delete still target the right element.
+		const ordered = rules
+			.map((rule, index) => ({ rule, index }))
+			.sort((a, b) => {
+				const groupCmp = a.rule.group.localeCompare(b.rule.group);
+				if (groupCmp !== 0) return groupCmp;
+				// Group-level rule (no featureClass) sorts before its classes.
+				const aClass = a.rule.featureClass ?? "";
+				const bClass = b.rule.featureClass ?? "";
+				if (!aClass && bClass) return -1;
+				if (aClass && !bClass) return 1;
+				return aClass.localeCompare(bClass);
+			});
 
+		// Summarise a rule's style fields as "icon=x color=#hex weight=N".
+		const describeRule = (rule: StyleRule): string => {
 			const parts: string[] = [];
 			if (rule.icon) parts.push(`icon=${rule.icon}`);
 			if (rule.color) parts.push(`color=${rule.color}`);
 			if (rule.weight !== undefined) parts.push(`weight=${rule.weight}`);
+			return parts.length > 0 ? parts.join(" ") : "(no style set)";
+		};
 
-			new Setting(container)
-				.setName(label)
-				.setDesc(parts.join(" "))
+		// Attach Edit/Delete controls to any rule row (heading or class row).
+		const addRuleControls = (setting: Setting, index: number): void => {
+			setting
 				.addExtraButton((button) => {
 					button.setIcon("pencil").setTooltip("Edit").onClick(() => {
-						this.editStyleRule(container, i);
+						this.editStyleRule(container, index);
 					});
 				})
 				.addExtraButton((button) => {
 					button.setIcon("trash").setTooltip("Delete").onClick(async () => {
-						rules.splice(i, 1);
+						rules.splice(index, 1);
 						await this.manager.updateSettings({ styleRules: rules });
 						this.renderStyleRules(container);
 					});
 				});
+		};
+
+		let lastGroup: string | null = null;
+		for (const { rule, index } of ordered) {
+			const isGroupDefault = rule.featureClass === undefined;
+
+			if (rule.group !== lastGroup) {
+				lastGroup = rule.group;
+
+				// When the first rule of this group IS the group default, fold it
+				// into the heading: its style config becomes the heading's
+				// description and its Edit/Delete controls sit on the heading row.
+				// It is then not re-rendered as a separate body row below.
+				if (isGroupDefault) {
+					group.addSetting((heading) => {
+						heading
+							.setName(rule.group || "Default")
+							.setHeading()
+							.setClass("bases-leaflet-view-style-group-heading")
+							.setDesc(describeRule(rule));
+						addRuleControls(heading, index);
+					});
+					continue;
+				}
+
+				// Group has no default rule — render a plain heading with no controls.
+				group.addSetting((heading) => {
+					heading
+						.setName(rule.group || "Default")
+						.setHeading()
+						.setClass("bases-leaflet-view-style-group-heading");
+				});
+			}
+
+			// Class rules (and any group default not folded into a heading) render
+			// as indented body rows beneath their group heading.
+			group.addSetting((setting) => {
+				setting
+					.setName(isGroupDefault ? "(group default)" : rule.featureClass!)
+					.setDesc(describeRule(rule))
+					.setClass("bases-leaflet-view-style-class-rule");
+				addRuleControls(setting, index);
+			});
 		}
 
-		new Setting(container).addButton((button) => {
-			button.setButtonText("Add rule").onClick(() => {
-				rules.push({ group: "" });
-				this.manager.updateSettings({ styleRules: rules });
-				this.editStyleRule(container, rules.length - 1);
+		group.addSetting((setting) => {
+			setting.addButton((button) => {
+				button.setButtonText("Add rule").onClick(async () => {
+					rules.push({ group: "" });
+					await this.manager.updateSettings({ styleRules: rules });
+					this.editStyleRule(container, rules.length - 1);
+				});
 			});
 		});
 	}

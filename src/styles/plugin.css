@@ -46,6 +46,22 @@ div.bases-leaflet-map-container div.bases-leaflet-map img.leaflet-image-layer {
 	color: var(--text-muted);
 }
 
+/* ── Feature styles settings: grouped cascade ──────────────────────── */
+/* Group heading separates each feature group's rules. */
+.bases-leaflet-view-style-group-heading .setting-item-name {
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+/* Class rules indent beneath their group's baseline rule to show the cascade. */
+.bases-leaflet-view-style-class-rule {
+	margin-inline-start: var(--size-4-4);
+	border-inline-start: var(--border-width) solid var(--background-modifier-border);
+	padding-inline-start: var(--size-4-3);
+}
+
 .bases-leaflet-view-setting-empty {
 	display: block;
 }
@@ -198,6 +214,12 @@ div.bases-leaflet-map-container div.bases-leaflet-map img.leaflet-image-layer {
 	align-items: center;
 	justify-content: center;
 	color: var(--icon-color, var(--text-normal));
+}
+/* Applied in JS (replaceLayerToggleIcon) to blank Leaflet's default
+   background-image icon so the injected Lucide SVG shows instead. Scoped
+   under .bases-leaflet-map and more specific than Leaflet's own rule. */
+.bases-leaflet-map .leaflet-control-layers-toggle.leaflet-map-no-bg-image {
+	background-image: none;
 }
 .bases-leaflet-map .leaflet-control-layers-toggle:hover {
 	background-color: var(--background-modifier-hover);
