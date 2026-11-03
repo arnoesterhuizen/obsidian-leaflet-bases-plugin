@@ -68,7 +68,7 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 				heading: "Feature styles",
 				items: [
 					{
-						name: "Feature styles",
+						name: "",
 						searchable: false,
 						render: (setting, group) => this.renderStyleRulesSection(setting, group),
 					},
@@ -131,20 +131,24 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 	 * The render row itself is empty; the declarative `type: 'group'` wrapping
 	 * this hatch supplies the native `div.setting-group` (with the "Feature
 	 * styles" heading) that the section must live inside, matching Map tools and
-	 * GeoJSON. The cascade is drawn into the group's own element — looked up from
-	 * the render row — so every rule row is a sibling inside that one
-	 * `div.setting-group` rather than nested in a bare child div. Rendering into
-	 * the group element (not the render row) also lets the self-managed re-render
-	 * on add/edit/delete empty and rebuild the cascade without discarding the row.
+	 * GeoJSON. Per the render-callback contract, the cascade is drawn INTO the
+	 * provided row's own element (`setting.settingEl`) rather than by removing the
+	 * row or reaching for the group element — the row is already attached inside
+	 * the group's `div.setting-group`, so rendering into it keeps every rule row
+	 * within that native chrome. The row is turned into a plain full-width
+	 * container (its default name/control layout is cleared) so the cascade owns
+	 * the whole width. The self-managed re-render on add/edit/delete empties and
+	 * rebuilds this same container.
 	 */
 	private renderStyleRulesSection(setting: Setting, _group: SettingGroup): void {
-		// The render row lives inside the group's `div.setting-group`. Capture that
-		// group element, then drop the empty placeholder row and draw the cascade
-		// straight into the group so each rule row is a native sibling inside the
-		// one `div.setting-group`, rather than nested in a bare child div.
-		const groupEl = setting.settingEl.parentElement ?? setting.settingEl;
-		setting.settingEl.remove();
-		const container = groupEl.createDiv("bases-leaflet-view-style-rules");
+		// Turn the render row into a plain block container and draw the cascade
+		// into it. settingEl is already attached inside the group's
+		// `div.setting-group`; emptying it and appending the cascade keeps the
+		// rows inside that chrome. (Earlier attempts that removed the row or
+		// targeted parentElement/listEl rendered into a detached or wrong element,
+		// leaving the section blank.)
+		const container = setting.settingEl;
+		container.addClass("bases-leaflet-view-style-rules");
 		this.renderStyleRules(container);
 	}
 
@@ -176,13 +180,13 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 				return aClass.localeCompare(bClass);
 			});
 
-		// Summarise a rule's style fields as "icon=x color=#hex weight=N".
+		// Summarise a rule's style fields as "Icon: x, Color: #hex, Weight: N".
 		const describeRule = (rule: StyleRule): string => {
 			const parts: string[] = [];
-			if (rule.icon) parts.push(`icon=${rule.icon}`);
-			if (rule.color) parts.push(`color=${rule.color}`);
-			if (rule.weight !== undefined) parts.push(`weight=${rule.weight}`);
-			return parts.length > 0 ? parts.join(" ") : "(no style set)";
+			if (rule.icon) parts.push(`Icon: ${rule.icon}`);
+			if (rule.color) parts.push(`Color: ${rule.color}`);
+			if (rule.weight !== undefined) parts.push(`Weight: ${rule.weight}`);
+			return parts.length > 0 ? parts.join(", ") : "(no style set)";
 		};
 
 		// Attach Edit/Delete controls to any rule row (heading or class row).

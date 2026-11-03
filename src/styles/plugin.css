@@ -47,14 +47,58 @@ div.bases-leaflet-map-container div.bases-leaflet-map img.leaflet-image-layer {
 }
 
 /* ── Feature styles settings: grouped cascade ──────────────────────── */
-/* Group heading separates each feature group's rules. */
-.bases-leaflet-view-style-group-heading .setting-item-name {
-	font-size: var(--font-ui-small);
-	font-weight: var(--font-semibold);
-	color: var(--text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
+/* The Feature styles render row hosts the whole cascade. Neutralise the default
+   .setting-item flex layout (name left / control right) and border so the
+   stacked cascade of child .setting-item rows lays out normally and spans the
+   full width. */
+.setting-item.bases-leaflet-view-style-rules {
+	display: block;
+	border-top: none;
+	padding: 0;
 }
+/* The host row is itself a non-heading `.setting-item` in the group, so the
+   native `::before` divider would draw a line above the whole cascade. Suppress
+   it — the cascade manages its own group dividers below. */
+.setting-item.bases-leaflet-view-style-rules::before {
+	content: none;
+}
+
+/* Dividers.
+   Obsidian draws separators as a `::before` top line on every non-heading
+   `.setting-group .setting-item` (headings are excluded via `:not`). For this
+   cascade we want the opposite grouping: a separator only BETWEEN groups (above
+   each group heading), and NO separator between a group heading and its child
+   class rows. So:
+     1. suppress the native `::before` divider on non-heading rows (class rules
+        and the group-default body rows), removing the inter-child lines; and
+     2. add an equivalent `::before` divider on the group-heading rows, which
+        the native rule skips — replicating the native geometry/variables so it
+        matches the dividers in Map tools. */
+.bases-leaflet-view-style-rules .setting-item:not(.setting-item-heading)::before {
+	content: none;
+}
+.bases-leaflet-view-style-rules .setting-item.setting-item-heading {
+	position: relative;
+}
+.bases-leaflet-view-style-rules .setting-item.setting-item-heading::before {
+	content: "";
+	position: absolute;
+	top: calc(-1 * var(--border-width));
+	left: var(--setting-items-padding-x);
+	right: var(--setting-items-padding-x);
+	border-top: var(--setting-items-divider-width) solid var(--setting-items-divider-color);
+}
+/* Restore the comfortable vertical padding native setting-items have (as in
+   Map tools); the stacked cascade rows otherwise read as cramped. */
+.bases-leaflet-view-style-rules .setting-item:not(.setting-item-heading) {
+	padding-top: var(--size-4-3);
+	padding-bottom: var(--size-4-3);
+}
+
+/* Group heading rows reuse Obsidian's native `.setting-item-heading` styling
+   (set via `.setHeading()`), so no name overrides are needed — the name already
+   renders in the native heading color/size/weight. */
+
 /* Class rules indent beneath their group's baseline rule to show the cascade. */
 .bases-leaflet-view-style-class-rule {
 	margin-inline-start: var(--size-4-4);
