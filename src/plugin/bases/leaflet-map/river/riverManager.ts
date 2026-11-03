@@ -240,7 +240,7 @@ export class RiverManager {
 	private featureToRiver(feature: GeoJSON.Feature): RiverFeature | null {
 		if (feature.geometry.type !== "LineString") return null;
 
-		const lineString = feature.geometry as GeoJSON.LineString;
+		const lineString = feature.geometry;
 		const coordinates = lineString.coordinates.map(
 			(coord) => new LatLng(coord[1]!, coord[0]!),
 		);

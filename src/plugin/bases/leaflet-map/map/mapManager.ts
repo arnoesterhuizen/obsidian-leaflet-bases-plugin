@@ -219,7 +219,7 @@ export class MapManager {
 
 		// Update the radio button in the control
 		if (this.baseLayerProxies[index]) {
-			this.baseLayerProxies[index]!.addTo(this.leafletMap);
+			this.baseLayerProxies[index].addTo(this.leafletMap);
 		}
 
 		await this.switchToBaseLayer(index);
@@ -509,7 +509,7 @@ export class MapManager {
 		if (!container) return;
 		const toggle = container.querySelector<HTMLElement>(".leaflet-control-layers-toggle");
 		if (!toggle) return;
-		toggle.style.backgroundImage = "none";
+		toggle.addClass("leaflet-map-no-bg-image");
 		setIcon(toggle, iconName);
 	}
 

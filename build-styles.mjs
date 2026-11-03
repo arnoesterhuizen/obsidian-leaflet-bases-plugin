@@ -13,4 +13,4 @@ const leafletCss = readFileSync("node_modules/leaflet/dist/leaflet.css", "utf8")
 const output = `${pluginCss}\n/* Leaflet CSS — bundled from node_modules/leaflet/dist/leaflet.css */\n${leafletCss}`;
 
 writeFileSync("styles.css", output);
-console.log("styles.css built (%d bytes)", Buffer.byteLength(output));
+process.stdout.write(`styles.css built (${Buffer.byteLength(output)} bytes)\n`);

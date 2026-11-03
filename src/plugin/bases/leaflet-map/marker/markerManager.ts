@@ -292,11 +292,11 @@ export class MarkerManager {
 
 		try {
 			// Try file.tags first (includes all tags in file)
-			let tagsValue = entry.getValue("file.tags" as `note.${string}`);
+			let tagsValue = entry.getValue("file.tags");
 
 			// Fallback: try note.tags (frontmatter tags property)
 			if (!tagsValue || !tagsValue.isTruthy()) {
-				tagsValue = entry.getValue("note.tags" as `note.${string}`);
+				tagsValue = entry.getValue("note.tags");
 			}
 
 			if (!tagsValue || !tagsValue.isTruthy()) return { group, featureClass };

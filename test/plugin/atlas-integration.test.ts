@@ -6,7 +6,6 @@
  */
 import { describe, expect, test } from "vitest";
 import { Constants as C } from "@plugin/constants";
-import { Coordinates } from "@plugin/types";
 import { parseBounds, parseCoordinates } from "@plugin/util";
 import { Validator } from "@plugin/validation/validators";
 
@@ -50,16 +49,16 @@ describe("Atlas integration: decimal coordinate support", () => {
 
 	describe("parseCoordinates with decimals", () => {
 		test("parses Toril GCS coordinates correctly", () => {
-			expect(parseCoordinates("49.306, -75.915" as Coordinates)).toEqual([49.306, -75.915]);
-			expect(parseCoordinates("24.745, -68.591" as Coordinates)).toEqual([24.745, -68.591]);
+			expect(parseCoordinates("49.306, -75.915")).toEqual([49.306, -75.915]);
+			expect(parseCoordinates("24.745, -68.591")).toEqual([24.745, -68.591]);
 		});
 
 		test("parses negative decimal coordinates", () => {
-			expect(parseCoordinates("-3.5, -12.7" as Coordinates)).toEqual([-3.5, -12.7]);
+			expect(parseCoordinates("-3.5, -12.7")).toEqual([-3.5, -12.7]);
 		});
 
 		test("still parses integer coordinates", () => {
-			expect(parseCoordinates("49, -75" as Coordinates)).toEqual([49, -75]);
+			expect(parseCoordinates("49, -75")).toEqual([49, -75]);
 		});
 	});
 });

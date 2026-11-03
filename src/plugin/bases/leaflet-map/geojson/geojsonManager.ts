@@ -66,9 +66,9 @@ export class GeoJsonManager {
 			const layer = geoJSON(data, {
 				interactive: false,
 				style: (feature) => {
-					const props = feature?.properties ?? {};
-					const group = (props.group as string) ?? "";
-					const featureClass = (props.feature_class as string) ?? "";
+					const props = (feature?.properties ?? {}) as Record<string, unknown>;
+					const group = typeof props.group === "string" ? props.group : "";
+					const featureClass = typeof props.feature_class === "string" ? props.feature_class : "";
 					const resolved = this.styleResolver.resolve(group, featureClass || undefined);
 					return {
 						color: resolved.color ?? fallbackColor,

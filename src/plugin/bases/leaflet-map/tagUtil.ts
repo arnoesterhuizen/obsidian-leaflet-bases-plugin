@@ -5,9 +5,9 @@ import { BasesEntry, ListValue } from "obsidian";
  */
 export function readEntryTags(entry: BasesEntry): string[] {
 	try {
-		let tagsValue = entry.getValue("file.tags" as `note.${string}`);
+		let tagsValue = entry.getValue("file.tags");
 		if (!tagsValue || !tagsValue.isTruthy()) {
-			tagsValue = entry.getValue("note.tags" as `note.${string}`);
+			tagsValue = entry.getValue("note.tags");
 		}
 		if (!tagsValue || !tagsValue.isTruthy()) return [];
 
