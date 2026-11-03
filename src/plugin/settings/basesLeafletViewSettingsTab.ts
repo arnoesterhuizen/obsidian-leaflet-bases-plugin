@@ -1,4 +1,10 @@
-import { Notice, PluginSettingTab, Setting, SettingGroup } from "obsidian";
+import {
+	Notice,
+	PluginSettingTab,
+	Setting,
+	SettingDefinitionItem,
+	SettingGroup,
+} from "obsidian";
 import { Constants as C } from "@plugin/constants";
 import { BasesLeafletViewPlugin } from "@plugin/plugin";
 import { IconifyJSONIconsObject, StyleRule } from "@plugin/types";
@@ -14,78 +20,133 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 		super(plugin.app, plugin);
 	}
 
-	override display(): void {
-		this.containerEl.empty();
-		this.addToolsGroup();
-		this.addGeoJsonGroup();
-		this.addStyleRulesGroup();
-		this.addIconsGroup();
+	/**
+	 * Declarative settings (Obsidian 1.13.0+). Returning a non-empty array makes
+	 * Obsidian render and index the tab from these definitions; `display()` is
+	 * no longer called.
+	 *
+	 * Only "Map tools" is a clean declarative section (three toggle `control`s).
+	 * GeoJSON (string[] <-> textarea), Feature styles (a bespoke heading-folded
+	 * grouped cascade with an inline editor), and the icon sets (OS file upload
+	 * plus a self-managed component) have no declarative equivalent, so each is a
+	 * `render` escape hatch that reuses the existing imperative code verbatim.
+	 */
+	override getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				type: "group",
+				heading: "Map tools",
+				items: [
+					{
+						name: "Enable measure tool",
+						desc: "Enable tool that allows you to measure distances",
+						control: { type: "toggle", key: "enableMeasureTool" },
+					},
+					{
+						name: "Enable drag tool",
+						desc: "Enable tool that allows you to drag markers",
+						control: { type: "toggle", key: "enableDragTool" },
+					},
+					{
+						name: "Enable create note tool",
+						desc: "Enable tool that creates a new note with a marker at the clicked location",
+						control: { type: "toggle", key: "enableCreateNoteTool" },
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "GeoJSON",
+				items: [
+					{
+						name: "Default layer colors",
+						desc: "Colors assigned to GeoJSON layers in order. Add one hex color per line.",
+						render: (setting) => this.renderGeoJsonColors(setting),
+					},
+				],
+			},
+			{
+				name: "Feature styles",
+				render: (setting) => this.renderStyleRulesSection(setting),
+			},
+			{
+				type: "group",
+				heading: "Additional icon sets",
+				items: [
+					{
+						name: "Add iconify icon set",
+						desc: this.buildIconsDesc(),
+						render: (setting) => this.renderIconUpload(setting),
+					},
+					{
+						name: "Loaded icon sets",
+						searchable: false,
+						render: (setting) => this.renderLoadedIcons(setting),
+					},
+				],
+			},
+		];
 	}
 
-	private addToolsGroup(): void {
-		new SettingGroup(this.containerEl)
-			.setHeading("Map tools")
-			.addSetting((setting) => {
-				setting
-					.setName("Enable measure tool")
-					.setDesc("Enable tool that allows you to measure distances")
-					.addToggle((toggle) =>
-						toggle.setValue(this.manager.settings.enableMeasureTool).onChange(async (value) => {
-							await this.manager.updateSettings({ enableMeasureTool: value });
-						}),
-					);
-			})
-			.addSetting((setting) => {
-				setting
-					.setName("Enable drag tool")
-					.setDesc("Enable tool that allows you to drag markers")
-					.addToggle((toggle) =>
-						toggle.setValue(this.manager.settings.enableDragTool).onChange(async (value) => {
-							await this.manager.updateSettings({ enableDragTool: value });
-						}),
-					);
-			})
-			.addSetting((setting) => {
-				setting
-					.setName("Enable create note tool")
-					.setDesc("Enable tool that creates a new note with a marker at the clicked location")
-					.addToggle((toggle) =>
-						toggle
-							.setValue(this.manager.settings.enableCreateNoteTool)
-							.onChange(async (value) => {
-								await this.manager.updateSettings({ enableCreateNoteTool: value });
-							}),
-					);
-			});
+	/**
+	 * Delegate control-value reads to the SettingsManager. The default
+	 * implementation reads `this.plugin.settings[key]`, but this plugin stores
+	 * its settings in `plugin.settingsManager.settings`, so declarative `control`
+	 * bindings must go through here.
+	 */
+	override getControlValue(key: string): unknown {
+		return (this.manager.settings as unknown as Record<string, unknown>)[key];
 	}
 
-	private addGeoJsonGroup(): void {
-		new SettingGroup(this.containerEl)
-			.setHeading("GeoJSON")
-			.addSetting((setting) => {
-				setting
-					.setName("Default layer colors")
-					.setDesc("Colors assigned to GeoJSON layers in order. Add one hex color per line.")
-					.addTextArea((textArea) => {
-						const colors = this.manager.settings.geojsonDefaultColors;
-						textArea
-							.setValue(colors.join("\n"))
-							.setPlaceholder("#3388ff\n#ff6633\n#33cc66")
-							.onChange(async (value) => {
-								const parsed = value
-									.split("\n")
-									.map((line) => line.trim())
-									.filter((line) => /^#([0-9A-Fa-f]{3}){1,2}$/.test(line));
-								await this.manager.updateSettings({ geojsonDefaultColors: parsed });
-							});
-						textArea.inputEl.rows = 6;
-						textArea.inputEl.cols = 20;
-					});
-			});
+	/**
+	 * Persist control-value writes through the SettingsManager, which is this
+	 * plugin's single write path (it also calls `saveData`). The default
+	 * implementation writes `this.plugin.settings[key]` + `plugin.saveData`,
+	 * which would bypass the manager.
+	 */
+	override async setControlValue(key: string, value: unknown): Promise<void> {
+		await this.manager.updateSettings({ [key]: value });
 	}
 
-	private addStyleRulesGroup(): void {
-		const container = this.containerEl.createDiv();
+	/**
+	 * GeoJSON default colors. The stored value is a `string[]`; a declarative
+	 * `textarea` control only stores a plain string, so this reproduces the
+	 * existing join-on-read / split+trim+hex-validate-on-write transform and the
+	 * `rows=6` sizing verbatim inside a `render` escape hatch.
+	 */
+	private renderGeoJsonColors(setting: Setting): void {
+		setting.addTextArea((textArea) => {
+			const colors = this.manager.settings.geojsonDefaultColors;
+			textArea
+				.setValue(colors.join("\n"))
+				.setPlaceholder("#3388ff\n#ff6633\n#33cc66")
+				.onChange(async (value) => {
+					const parsed = value
+						.split("\n")
+						.map((line) => line.trim())
+						.filter((line) => /^#([0-9A-Fa-f]{3}){1,2}$/.test(line));
+					await this.manager.updateSettings({ geojsonDefaultColors: parsed });
+				});
+			textArea.inputEl.rows = 6;
+			textArea.inputEl.cols = 20;
+		});
+	}
+
+	/**
+	 * Feature styles section. This cannot be expressed as a declarative `list`
+	 * or `group`: it is a heading-folded grouped cascade (each group's default
+	 * rule folded onto the heading, class rules indented beneath) with an inline
+	 * editor. It is rendered through a single `render` escape hatch that drives
+	 * the existing `renderStyleRules` / `editStyleRule` logic verbatim.
+	 *
+	 * The row's own name/desc/control are unused; `renderStyleRules` draws the
+	 * whole section into a dedicated child container so its self-managed
+	 * re-render (on add/edit/delete) keeps working exactly as before.
+	 */
+	private renderStyleRulesSection(setting: Setting): void {
+		setting.settingEl.addClass("bases-leaflet-view-setting-empty");
+		setting.infoEl.remove();
+		const container = setting.settingEl.createDiv();
 		this.renderStyleRules(container);
 	}
 
@@ -258,66 +319,79 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 		});
 	}
 
-	private addIconsGroup(): void {
-		let loadedIcons: LoadedIconSetsComponent;
-		new SettingGroup(this.containerEl)
-			.setHeading("Additional icon sets")
-			.addSetting((setting) => {
-				const fragment = new DocumentFragment();
-				fragment.createSpan({ text: "" }, (span) => {
-					span.append("Additional ");
-					span.createEl("a", {
-						text: "Iconify icon sets",
-						href: C.settings.links.preview,
-					});
-					span.append(" can be downloaded as .json files at the ");
-					span.createEl("a", {
-						text: "Iconify GitHub repository",
-						href: C.settings.links.github,
-					});
-					span.append("");
-					span.createEl("br");
-					span.createEl("br");
-					span.createEl("i", { text: "Adding too many icons can negatively impact the performance of your device" });
-				});
-				setting
-					.setName("Add iconify icon set")
-					.setDesc(fragment)
-					.addButton(async (button) => {
-						const input = button.buttonEl.createEl("input", {
-							type: "file",
-							attr: { accept: ".json", style: "display: none;" },
-						});
-						input.onchange = async () => {
-							if (!input.files?.length) return;
-
-							await this.plugin.iconManager.reload(async () => {
-								const data: IconifyJSONIconsObject[] = this.manager.settings.iconData;
-								try {
-									for (let file of Array.from(input.files ?? [])) {
-										const text = await file.text();
-										const json: unknown = JSON.parse(text);
-										if (SchemaValidator.icon(json)) data.push(json);
-										else throw new Error(`Invalid IconSet: ${text}`);
-									}
-								} catch (error) {
-									new Notice("There was an error loading your icon set(s)");
-									console.error(error);
-								}
-
-								input.value = "";
-								await this.manager.updateSettings({ iconData: data });
-								loadedIcons?.render();
-							});
-						};
-						button.setButtonText("Add iconset").onClick(() => {
-							input.click();
-						});
-					});
-			})
-			.addSetting((setting) => {
-				setting.setClass("bases-leaflet-view-setting-empty");
-				loadedIcons = new LoadedIconSetsComponent(setting.settingEl, this.plugin);
+	/** Description fragment for the icon-set upload row (links + perf warning). */
+	private buildIconsDesc(): DocumentFragment {
+		const fragment = new DocumentFragment();
+		fragment.createSpan({ text: "" }, (span) => {
+			span.append("Additional ");
+			span.createEl("a", {
+				text: "Iconify icon sets",
+				href: C.settings.links.preview,
 			});
+			span.append(" can be downloaded as .json files at the ");
+			span.createEl("a", {
+				text: "Iconify GitHub repository",
+				href: C.settings.links.github,
+			});
+			span.append("");
+			span.createEl("br");
+			span.createEl("br");
+			span.createEl("i", { text: "Adding too many icons can negatively impact the performance of your device" });
+		});
+		return fragment;
+	}
+
+	/**
+	 * Icon-set upload button. Uses an OS file picker (`<input type="file">`),
+	 * which has no declarative control equivalent, so it is a `render` escape
+	 * hatch reproducing the existing hidden-input + JSON-validate + reload flow
+	 * verbatim.
+	 */
+	private renderIconUpload(setting: Setting): void {
+		setting.addButton((button) => {
+			const input = button.buttonEl.createEl("input", {
+				type: "file",
+				attr: { accept: ".json", style: "display: none;" },
+			});
+			input.onchange = async () => {
+				if (!input.files?.length) return;
+
+				await this.plugin.iconManager.reload(async () => {
+					const data: IconifyJSONIconsObject[] = this.manager.settings.iconData;
+					try {
+						for (let file of Array.from(input.files ?? [])) {
+							const text = await file.text();
+							const json: unknown = JSON.parse(text);
+							if (SchemaValidator.icon(json)) data.push(json);
+							else throw new Error(`Invalid IconSet: ${text}`);
+						}
+					} catch (error) {
+						new Notice("There was an error loading your icon set(s)");
+						console.error(error);
+					}
+
+					input.value = "";
+					await this.manager.updateSettings({ iconData: data });
+					this.loadedIcons?.render();
+				});
+			};
+			button.setButtonText("Add iconset").onClick(() => {
+				input.click();
+			});
+		});
+	}
+
+	/** Holds the loaded-icon-sets component so the upload flow can re-render it. */
+	private loadedIcons?: LoadedIconSetsComponent;
+
+	/**
+	 * Loaded icon sets list. `LoadedIconSetsComponent` manages its own DOM and
+	 * re-renders itself imperatively, so it lives inside a `render` escape hatch
+	 * mounted on the row element, exactly as before.
+	 */
+	private renderLoadedIcons(setting: Setting): void {
+		setting.settingEl.addClass("bases-leaflet-view-setting-empty");
+		setting.infoEl.remove();
+		this.loadedIcons = new LoadedIconSetsComponent(setting.settingEl, this.plugin);
 	}
 }
