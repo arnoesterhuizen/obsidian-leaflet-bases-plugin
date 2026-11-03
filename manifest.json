@@ -2,8 +2,8 @@
 	"id": "leaflet-bases-fork",
 	"name": "Leaflet bases",
 	"description": "Interactive map view inside your bases. Forked from Requiae/obsidian-leaflet-bases-plugin.",
-	"version": "1.2.0",
-	"minAppVersion": "1.11.4",
+	"version": "1.3.0",
+	"minAppVersion": "1.13.0",
 	"author": "Arno Esterhuizen (fork of Sara Lilith Slootmaker / Requiae)",
 	"authorUrl": "https://github.com/arnoe",
 	"isDesktopOnly": false

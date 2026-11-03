@@ -102,7 +102,7 @@ class LeafletMapView extends BasesView {
 	/** Debounced resize handler — prevents map thrashing during window/pane resizes. */
 	private onResizeDebounce = debounce(() => this.mapManager.invalidateSize(), 100, true);
 
-	onResize(): void {
+	override onResize(): void {
 		this.onResizeDebounce();
 	}
 
@@ -112,7 +112,7 @@ class LeafletMapView extends BasesView {
 
 	// --- Ephemeral state for workspace history navigation ---
 
-	public getEphemeralState(): unknown {
+	public override getEphemeralState(): Record<string, unknown> {
 		const state = this.mapManager.getViewState();
 		if (!state) return {};
 		return {
@@ -122,7 +122,7 @@ class LeafletMapView extends BasesView {
 		};
 	}
 
-	public setEphemeralState(state: unknown): void {
+	public override setEphemeralState(state: unknown): void {
 		if (!state || typeof state !== "object") {
 			this.pendingState = null;
 			return;
