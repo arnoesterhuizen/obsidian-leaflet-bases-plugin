@@ -7,7 +7,6 @@ export class SettingsManager extends Manager {
 		...C.settings.default,
 		geojsonDefaultColors: [...C.settings.default.geojsonDefaultColors],
 		styleRules: [...C.settings.default.styleRules],
-		iconData: [],
 	};
 	private _settings: BasesLeafletViewSettings = { ...this.defaultData };
 	get settings(): BasesLeafletViewSettings {

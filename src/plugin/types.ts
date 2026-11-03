@@ -1,6 +1,5 @@
 import { LatLng } from "leaflet";
 import { BasesViewRegistration, IconName, TFile } from "obsidian";
-import { IconifyInfo, IconifyJSONIconsData } from "@iconify/types";
 import { BasesLeafletViewPlugin } from "./plugin";
 
 export type ViewRegistrationBuilder = (
@@ -124,12 +123,6 @@ export interface MapConfig {
 
 export type NoteSelection = string | TFile | undefined;
 
-export type ReducedIconifyInfo = Pick<IconifyInfo, "name" | "author" | "license">;
-// Reconstruct interface as type to avoid "Index signature is missing" error
-export type IconifyJSONIconsObject = {
-	[Properties in keyof IconifyJSONIconsData]: IconifyJSONIconsData[Properties];
-} & { info?: ReducedIconifyInfo };
-
 export type ValidatorFunction<T> = (value: unknown) => value is T;
 
 export type Schema<T extends keyof StringMap> = Record<
@@ -151,7 +144,6 @@ export interface BasesLeafletViewSettings {
 	enableCreateNoteTool: boolean;
 	geojsonDefaultColors: string[];
 	styleRules: StyleRule[];
-	iconData: IconifyJSONIconsObject[];
 }
 
 /**

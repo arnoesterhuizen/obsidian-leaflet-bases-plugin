@@ -1,15 +1,11 @@
 import {
-	Notice,
 	PluginSettingTab,
 	Setting,
 	SettingDefinitionItem,
 	SettingGroup,
 } from "obsidian";
-import { Constants as C } from "@plugin/constants";
 import { BasesLeafletViewPlugin } from "@plugin/plugin";
-import { IconifyJSONIconsObject, StyleRule } from "@plugin/types";
-import { SchemaValidator } from "@plugin/validation/schemaValidators";
-import { LoadedIconSetsComponent } from "./loadedIconSetsComponent";
+import { StyleRule } from "@plugin/types";
 import { SettingsManager } from "./settingsManager";
 
 export class BasesLeafletViewSettingsTab extends PluginSettingTab {
@@ -26,10 +22,12 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 	 * no longer called.
 	 *
 	 * Only "Map tools" is a clean declarative section (three toggle `control`s).
-	 * GeoJSON (string[] <-> textarea), Feature styles (a bespoke heading-folded
-	 * grouped cascade with an inline editor), and the icon sets (OS file upload
-	 * plus a self-managed component) have no declarative equivalent, so each is a
-	 * `render` escape hatch that reuses the existing imperative code verbatim.
+	 * GeoJSON (string[] <-> textarea) and Feature styles (a bespoke heading-folded
+	 * grouped cascade with an inline editor) have no declarative equivalent, so
+	 * each lives in a `type: 'group'` whose single item is a `render` escape hatch
+	 * that reuses the existing imperative code verbatim. Wrapping each hatch in a
+	 * `group` makes Obsidian provide the native `div.setting-group` chrome around
+	 * it, matching Map tools.
 	 */
 	override getSettingDefinitions(): SettingDefinitionItem[] {
 		return [
@@ -66,22 +64,13 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 				],
 			},
 			{
-				name: "Feature styles",
-				render: (setting) => this.renderStyleRulesSection(setting),
-			},
-			{
 				type: "group",
-				heading: "Additional icon sets",
+				heading: "Feature styles",
 				items: [
 					{
-						name: "Add iconify icon set",
-						desc: this.buildIconsDesc(),
-						render: (setting) => this.renderIconUpload(setting),
-					},
-					{
-						name: "Loaded icon sets",
+						name: "Feature styles",
 						searchable: false,
-						render: (setting) => this.renderLoadedIcons(setting),
+						render: (setting, group) => this.renderStyleRulesSection(setting, group),
 					},
 				],
 			},
@@ -139,14 +128,23 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 	 * editor. It is rendered through a single `render` escape hatch that drives
 	 * the existing `renderStyleRules` / `editStyleRule` logic verbatim.
 	 *
-	 * The row's own name/desc/control are unused; `renderStyleRules` draws the
-	 * whole section into a dedicated child container so its self-managed
-	 * re-render (on add/edit/delete) keeps working exactly as before.
+	 * The render row itself is empty; the declarative `type: 'group'` wrapping
+	 * this hatch supplies the native `div.setting-group` (with the "Feature
+	 * styles" heading) that the section must live inside, matching Map tools and
+	 * GeoJSON. The cascade is drawn into the group's own element — looked up from
+	 * the render row — so every rule row is a sibling inside that one
+	 * `div.setting-group` rather than nested in a bare child div. Rendering into
+	 * the group element (not the render row) also lets the self-managed re-render
+	 * on add/edit/delete empty and rebuild the cascade without discarding the row.
 	 */
-	private renderStyleRulesSection(setting: Setting): void {
-		setting.settingEl.addClass("bases-leaflet-view-setting-empty");
-		setting.infoEl.remove();
-		const container = setting.settingEl.createDiv();
+	private renderStyleRulesSection(setting: Setting, _group: SettingGroup): void {
+		// The render row lives inside the group's `div.setting-group`. Capture that
+		// group element, then drop the empty placeholder row and draw the cascade
+		// straight into the group so each rule row is a native sibling inside the
+		// one `div.setting-group`, rather than nested in a bare child div.
+		const groupEl = setting.settingEl.parentElement ?? setting.settingEl;
+		setting.settingEl.remove();
+		const container = groupEl.createDiv("bases-leaflet-view-style-rules");
 		this.renderStyleRules(container);
 	}
 
@@ -154,20 +152,11 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 		container.empty();
 		const rules = this.manager.settings.styleRules;
 
-		// Wrap the whole section in a SettingGroup so the heading and every row
-		// live inside a single `div.setting-group`, matching the other sections
-		// (Map tools, GeoJSON) and Obsidian's native settings layout. Every row
-		// below is added via `group.addSetting(...)` so it nests in the group
-		// rather than being a loose sibling in a bare div.
-		const group = new SettingGroup(container).setHeading("Feature styles");
-
-		group.addSetting((setting) => {
-			setting
-				.setName("Style resolution cascade")
-				.setDesc(
-					"Plugin settings (group) < plugin settings (group+class) < base file overrides < note frontmatter.",
-				);
-		});
+		new Setting(container)
+			.setName("Style resolution cascade")
+			.setDesc(
+				"Plugin settings (group) < plugin settings (group+class) < base file overrides < note frontmatter.",
+			);
 
 		// Render rules grouped by `group` and sorted so the cascade reads top to
 		// bottom: each group's baseline (group-only) rule first, then its
@@ -225,44 +214,36 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 				// description and its Edit/Delete controls sit on the heading row.
 				// It is then not re-rendered as a separate body row below.
 				if (isGroupDefault) {
-					group.addSetting((heading) => {
-						heading
-							.setName(rule.group || "Default")
-							.setHeading()
-							.setClass("bases-leaflet-view-style-group-heading")
-							.setDesc(describeRule(rule));
-						addRuleControls(heading, index);
-					});
+					const heading = new Setting(container)
+						.setName(rule.group || "Default")
+						.setHeading()
+						.setClass("bases-leaflet-view-style-group-heading")
+						.setDesc(describeRule(rule));
+					addRuleControls(heading, index);
 					continue;
 				}
 
 				// Group has no default rule — render a plain heading with no controls.
-				group.addSetting((heading) => {
-					heading
-						.setName(rule.group || "Default")
-						.setHeading()
-						.setClass("bases-leaflet-view-style-group-heading");
-				});
+				new Setting(container)
+					.setName(rule.group || "Default")
+					.setHeading()
+					.setClass("bases-leaflet-view-style-group-heading");
 			}
 
 			// Class rules (and any group default not folded into a heading) render
 			// as indented body rows beneath their group heading.
-			group.addSetting((setting) => {
-				setting
-					.setName(isGroupDefault ? "(group default)" : rule.featureClass!)
-					.setDesc(describeRule(rule))
-					.setClass("bases-leaflet-view-style-class-rule");
-				addRuleControls(setting, index);
-			});
+			const row = new Setting(container)
+				.setName(isGroupDefault ? "(group default)" : rule.featureClass!)
+				.setDesc(describeRule(rule))
+				.setClass("bases-leaflet-view-style-class-rule");
+			addRuleControls(row, index);
 		}
 
-		group.addSetting((setting) => {
-			setting.addButton((button) => {
-				button.setButtonText("Add rule").onClick(async () => {
-					rules.push({ group: "" });
-					await this.manager.updateSettings({ styleRules: rules });
-					this.editStyleRule(container, rules.length - 1);
-				});
+		new Setting(container).addButton((button) => {
+			button.setButtonText("Add rule").onClick(async () => {
+				rules.push({ group: "" });
+				await this.manager.updateSettings({ styleRules: rules });
+				this.editStyleRule(container, rules.length - 1);
 			});
 		});
 	}
@@ -317,81 +298,5 @@ export class BasesLeafletViewSettingsTab extends PluginSettingTab {
 				this.renderStyleRules(container);
 			});
 		});
-	}
-
-	/** Description fragment for the icon-set upload row (links + perf warning). */
-	private buildIconsDesc(): DocumentFragment {
-		const fragment = new DocumentFragment();
-		fragment.createSpan({ text: "" }, (span) => {
-			span.append("Additional ");
-			span.createEl("a", {
-				text: "Iconify icon sets",
-				href: C.settings.links.preview,
-			});
-			span.append(" can be downloaded as .json files at the ");
-			span.createEl("a", {
-				text: "Iconify GitHub repository",
-				href: C.settings.links.github,
-			});
-			span.append("");
-			span.createEl("br");
-			span.createEl("br");
-			span.createEl("i", { text: "Adding too many icons can negatively impact the performance of your device" });
-		});
-		return fragment;
-	}
-
-	/**
-	 * Icon-set upload button. Uses an OS file picker (`<input type="file">`),
-	 * which has no declarative control equivalent, so it is a `render` escape
-	 * hatch reproducing the existing hidden-input + JSON-validate + reload flow
-	 * verbatim.
-	 */
-	private renderIconUpload(setting: Setting): void {
-		setting.addButton((button) => {
-			const input = button.buttonEl.createEl("input", {
-				type: "file",
-				attr: { accept: ".json", style: "display: none;" },
-			});
-			input.onchange = async () => {
-				if (!input.files?.length) return;
-
-				await this.plugin.iconManager.reload(async () => {
-					const data: IconifyJSONIconsObject[] = this.manager.settings.iconData;
-					try {
-						for (let file of Array.from(input.files ?? [])) {
-							const text = await file.text();
-							const json: unknown = JSON.parse(text);
-							if (SchemaValidator.icon(json)) data.push(json);
-							else throw new Error(`Invalid IconSet: ${text}`);
-						}
-					} catch (error) {
-						new Notice("There was an error loading your icon set(s)");
-						console.error(error);
-					}
-
-					input.value = "";
-					await this.manager.updateSettings({ iconData: data });
-					this.loadedIcons?.render();
-				});
-			};
-			button.setButtonText("Add iconset").onClick(() => {
-				input.click();
-			});
-		});
-	}
-
-	/** Holds the loaded-icon-sets component so the upload flow can re-render it. */
-	private loadedIcons?: LoadedIconSetsComponent;
-
-	/**
-	 * Loaded icon sets list. `LoadedIconSetsComponent` manages its own DOM and
-	 * re-renders itself imperatively, so it lives inside a `render` escape hatch
-	 * mounted on the row element, exactly as before.
-	 */
-	private renderLoadedIcons(setting: Setting): void {
-		setting.settingEl.addClass("bases-leaflet-view-setting-empty");
-		setting.infoEl.remove();
-		this.loadedIcons = new LoadedIconSetsComponent(setting.settingEl, this.plugin);
 	}
 }
