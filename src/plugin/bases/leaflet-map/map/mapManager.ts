@@ -50,6 +50,9 @@ export class MapManager {
 	private activeBaseLayerIndex: number = 0;
 	private baseLayerChangeHandler: ((e: { name: string }) => void) | undefined;
 
+	/** Removes this view's subscription to map-tool setting changes on unload. */
+	private unsubscribeToolSettings: () => void = () => {};
+
 	constructor(plugin: BasesLeafletViewPlugin, containerEl: HTMLElement, viewUtil: ViewUtil) {
 		this.mapEl = containerEl.createDiv("bases-leaflet-map");
 		this.imageLoader = new ImageLoader(plugin.app);
@@ -90,6 +93,12 @@ export class MapManager {
 		this.controls.addTo(this.leafletMap);
 		this.replaceZoomIcons();
 
+		// Rebuild the toolbar live when a map-tool toggle changes in settings, so
+		// the change takes effect immediately instead of only after a reload.
+		this.unsubscribeToolSettings = plugin.settingsManager.onToolSettingsChanged(() =>
+			this.refreshControls(),
+		);
+
 		this.contextMenu = new ContextMenu(plugin.app, viewUtil, this.leafletMap, frontmatter);
 		this.contextMenu.addHooks();
 
@@ -102,7 +111,20 @@ export class MapManager {
 		);
 	}
 
+	/**
+	 * Rebuild the map-tool toolbar from the current settings. The ControlContainer
+	 * reads the live settings object in `onAdd`, so removing and re-adding it picks
+	 * up toggled tools without tearing down the map. The stored MapConfig is
+	 * re-applied so the fresh sub-controls get their per-view configuration.
+	 */
+	private refreshControls(): void {
+		this.controls.remove();
+		this.controls.addTo(this.leafletMap);
+		if (this.config) this.controls.updateSettings(this.config);
+	}
+
 	unload(): void {
+		this.unsubscribeToolSettings();
 		this.markerManager.unload();
 		this.regionManager.unload();
 		this.pathManager.unload();
